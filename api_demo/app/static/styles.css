@@ -245,6 +245,13 @@ h1 {
   font-size: 22px;
 }
 
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
 .sub-menu {
   display: flex;
   gap: 10px;

@@ -49,11 +49,13 @@ def create_app() -> FastAPI:
 					email=email,
 					password_hash=hash_password(settings.SUPER_ADMIN_PASSWORD),
 					role="super_admin",
+					is_verified=True,
 				)
 				db.add(user)
 			else:
 				user.role = "super_admin"
 				user.password_hash = hash_password(settings.SUPER_ADMIN_PASSWORD)
+				user.is_verified = True
 			db.commit()
 		finally:
 			db.close()
@@ -73,6 +75,10 @@ def create_app() -> FastAPI:
 
 	@app.get("/")
 	def ui():
+		return FileResponse(static_dir / "index.html")
+
+	@app.get("/admin")
+	def admin_ui():
 		return FileResponse(static_dir / "index.html")
 
 	@app.get("/health")

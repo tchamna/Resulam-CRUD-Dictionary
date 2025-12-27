@@ -111,10 +111,12 @@ async function loadCurrentUser() {
     const res = await apiRequest({ endpoint: "/users/me", method: "GET", auth: true });
     if (res.ok && res.data && res.data.role) {
       currentUserRole = res.data.role;
+      return res.data;
     }
   } catch (err) {
     appendLog("Current user error", { message: err.message });
   }
+  return null;
 }
 
 function isAdmin() {
@@ -185,7 +187,7 @@ async function loadLanguages() {
     const res = await apiRequest({ endpoint: "/dictionary/languages", method: "GET" });
     if (res.ok && Array.isArray(res.data)) {
       languageCache = res.data;
-      renderLanguageDropdown(languageCache, "");
+      renderLanguageDropdown(languageCache, "", false);
       if (languageCache.length) {
         const nufi = languageCache.find((row) => normalizeLanguageKey(row.name) === "nufi");
         setLanguage(nufi || languageCache[0]);
@@ -197,7 +199,7 @@ async function loadLanguages() {
   }
 }
 
-function renderLanguageDropdown(list, query) {
+function renderLanguageDropdown(list, query, shouldOpen = true) {
   if (!languageDropdown) {
     return;
   }
@@ -246,7 +248,7 @@ function renderLanguageDropdown(list, query) {
     });
     languageDropdown.appendChild(create);
   }
-  languageDropdown.classList.toggle("open", true);
+  languageDropdown.classList.toggle("open", shouldOpen);
 }
 
 function normalizeLanguageKey(value) {
@@ -618,11 +620,43 @@ function renderResult(targetId, res) {
     return;
   }
 
+  if (targetId === "invite-result") {
+    if (!res.ok) {
+      el.textContent = `Error ${res.status}: ${JSON.stringify(res.data)}`;
+      return;
+    }
+    const codes = Array.isArray(res.data?.codes) ? res.data.codes : [];
+    if (!codes.length) {
+      el.textContent = "No invite codes returned.";
+      return;
+    }
+    el.textContent = `Invite codes: ${codes.join(", ")}`;
+    return;
+  }
+
+  if (targetId === "register-result") {
+    if (!res.ok) {
+      el.textContent = `Error ${res.status}: ${JSON.stringify(res.data)}`;
+      return;
+    }
+    const token = res.data?.verification_token;
+    if (token) {
+      el.textContent = `Verification token: ${token}`;
+      return;
+    }
+  }
+
   if (targetId === "users-result" && Array.isArray(res.data)) {
     if (res.data.length === 0) {
       el.textContent = "No users yet.";
       return;
     }
+
+    const emailCounts = res.data.reduce((acc, user) => {
+      const key = (user.email || "").toLowerCase();
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
 
     el.textContent = "";
     const list = document.createElement("div");
@@ -633,7 +667,8 @@ function renderResult(targetId, res) {
 
       const label = document.createElement("span");
       const count = typeof user.defined_count === "number" ? user.defined_count : 0;
-      label.textContent = `#${user.id} ${user.email} (${user.role}, ${count} defined)`;
+      const verified = user.is_verified ? "verified" : "unverified";
+      label.textContent = `#${user.id} ${user.email} (${user.role}, ${verified}, ${count} defined)`;
 
       const useButton = document.createElement("button");
       useButton.type = "button";
@@ -651,6 +686,50 @@ function renderResult(targetId, res) {
 
       row.appendChild(label);
       row.appendChild(useButton);
+      if ((emailCounts[user.email.toLowerCase()] || 0) > 1) {
+        const dedupeButton = document.createElement("button");
+        dedupeButton.type = "button";
+        dedupeButton.className = "ghost small";
+        dedupeButton.textContent = "Deduplicate";
+        dedupeButton.addEventListener("click", async () => {
+          const res = await apiRequest({
+            endpoint: "/users/deduplicate",
+            method: "PUT",
+            body: { email: user.email },
+            auth: true,
+          });
+          appendLog("PUT /users/deduplicate", res.data);
+          if (res.ok) {
+            showToast(`Deduped ${user.email}`, dedupeButton);
+            refreshUsersList();
+          } else {
+            showToast("Deduplicate failed", dedupeButton);
+          }
+        });
+        row.appendChild(dedupeButton);
+      }
+      if (!user.is_verified) {
+        const verifyButton = document.createElement("button");
+        verifyButton.type = "button";
+        verifyButton.className = "ghost small";
+        verifyButton.textContent = "Verify";
+        verifyButton.addEventListener("click", async () => {
+          const res = await apiRequest({
+            endpoint: "/users/verify",
+            method: "PUT",
+            body: { email: user.email },
+            auth: true,
+          });
+          appendLog("PUT /users/verify", res.data);
+          if (res.ok) {
+            showToast(`Verified ${user.email}`, verifyButton);
+            refreshUsersList();
+          } else {
+            showToast("Verify failed", verifyButton);
+          }
+        });
+        row.appendChild(verifyButton);
+      }
       list.appendChild(row);
     });
     el.appendChild(list);
@@ -779,14 +858,23 @@ document.querySelectorAll("form").forEach((form) => {
       }
       if (resultTarget) {
         renderResult(resultTarget, res);
+        if (resultTarget === "dictionary-result" && res.ok) {
+          const resultEl = document.getElementById("dictionary-result");
+          if (resultEl) {
+            resultEl.scrollIntoView({ behavior: "smooth", block: "start" });
+          }
+        }
+      }
+      if (endpoint === "/auth/login" && !res.ok) {
+        const detail = res.data?.detail || "Login failed.";
+        showToast(detail, event.submitter);
       }
       if (expectsToken && res.ok && res.data.access_token) {
         setTokens(res.data.access_token, res.data.refresh_token || "");
         if (endpoint === "/auth/login") {
-          const dictionaryTab = document.querySelector('.menu-btn[data-panel="panel-dictionary"]');
+          showDictionaryOnly();
           const dictionaryPanel = document.getElementById("panel-dictionary");
-          if (dictionaryTab && dictionaryPanel) {
-            dictionaryTab.click();
+          if (dictionaryPanel) {
             dictionaryPanel.scrollIntoView({ behavior: "smooth", block: "start" });
           }
         }
@@ -796,6 +884,56 @@ document.querySelectorAll("form").forEach((form) => {
     }
   });
 });
+
+function refreshUsersList() {
+  const usersForm = document.querySelector('form[data-endpoint="/users"][data-method="GET"]');
+  if (!usersForm) {
+    return;
+  }
+  if (typeof usersForm.requestSubmit === "function") {
+    usersForm.requestSubmit();
+  } else {
+    usersForm.dispatchEvent(new Event("submit", { cancelable: true }));
+  }
+}
+
+const googleLoginButton = document.getElementById("google-login");
+if (googleLoginButton) {
+  googleLoginButton.addEventListener("click", () => {
+    const inviteInput = document.getElementById("google-invite");
+    const invite = inviteInput ? inviteInput.value.trim() : "";
+    const url = invite ? `/auth/google/login?invite=${encodeURIComponent(invite)}` : "/auth/google/login";
+    window.location.href = url;
+  });
+}
+
+const logoutButton = document.getElementById("logout-button");
+if (logoutButton) {
+  logoutButton.addEventListener("click", () => {
+    setTokens("", "");
+    showToast("Signed out.", logoutButton);
+    if (!isAdminRoute) {
+      showAuthOnly("login");
+    }
+  });
+}
+
+const randomForm = document.querySelector('form[data-endpoint="/dictionary/random"]');
+if (randomForm) {
+  const countInput = randomForm.querySelector('input[name="limit"]');
+  const submitButton = document.getElementById("random-submit");
+  const updateRandomLabel = () => {
+    const value = countInput ? parseInt(countInput.value, 10) : 10;
+    const safeValue = Number.isFinite(value) && value > 0 ? value : 10;
+    if (submitButton) {
+      submitButton.textContent = `Show ${safeValue} random words`;
+    }
+  };
+  if (countInput) {
+    countInput.addEventListener("input", updateRandomLabel);
+    updateRandomLabel();
+  }
+}
 
 const dictionaryForm = document.querySelector('form[data-endpoint="/dictionary"][data-method="GET"]');
 if (dictionaryForm) {
@@ -933,15 +1071,15 @@ document.querySelectorAll("[data-clafrica=\"true\"]").forEach((input) => {
 });
 
 if (languageInput) {
-  languageInput.addEventListener("focus", () => {
-    renderLanguageDropdown(languageCache, languageInput.value.trim());
+  languageInput.addEventListener("click", () => {
+    renderLanguageDropdown(languageCache, languageInput.value.trim(), true);
   });
   languageInput.addEventListener("input", () => {
     const query = languageInput.value.trim();
     const filtered = query
       ? languageCache.filter((row) => row.name.toLowerCase().includes(query.toLowerCase()))
       : languageCache;
-    renderLanguageDropdown(filtered, query);
+    renderLanguageDropdown(filtered, query, true);
     const match = findLanguageMatch(query);
     if (match) {
       setLanguage(match);
@@ -958,10 +1096,87 @@ if (languageInput) {
   });
 }
 
-if (spellcheckToggle && definitionTextarea) {
-  spellcheckToggle.addEventListener("change", () => {
-    definitionTextarea.spellcheck = spellcheckToggle.checked;
+if (spellcheckToggle) {
+  const updateSpellcheck = () => {
+    const enabled = spellcheckToggle.checked;
+    document.querySelectorAll('textarea[data-clafrica="true"], input[data-clafrica="true"]').forEach((el) => {
+      el.spellcheck = enabled;
+    });
+  };
+  spellcheckToggle.addEventListener("change", updateSpellcheck);
+  updateSpellcheck();
+}
+
+const isAdminRoute = window.location.pathname.startsWith("/admin");
+document.querySelectorAll(".admin-only").forEach((el) => {
+  if (!isAdminRoute) {
+    el.classList.add("is-hidden");
+  }
+});
+if (isAdminRoute) {
+  document.querySelectorAll(".invite-field").forEach((el) => {
+    el.classList.add("is-hidden");
   });
+}
+
+function showAuthOnly(defaultTab = "register") {
+  const authPanel = document.getElementById("panel-auth");
+  document.querySelectorAll(".panel").forEach((panel) => {
+    if (panel !== authPanel) {
+      panel.classList.remove("panel-active");
+      panel.classList.add("is-hidden");
+    }
+  });
+  if (authPanel) {
+    authPanel.classList.add("panel-active");
+    authPanel.classList.remove("is-hidden");
+  }
+  document.querySelectorAll(".auth-tab").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.authTab === defaultTab);
+  });
+  document.querySelectorAll(".auth-basic form").forEach((form) => {
+    form.classList.toggle("is-hidden", form.dataset.authTab !== defaultTab);
+  });
+}
+
+function showDictionaryOnly() {
+  const dictPanel = document.getElementById("panel-dictionary");
+  const authPanel = document.getElementById("panel-auth");
+  if (authPanel) {
+    authPanel.classList.remove("panel-active");
+    authPanel.classList.add("is-hidden");
+  }
+  document.querySelectorAll(".panel").forEach((panel) => {
+    if (panel !== dictPanel) {
+      panel.classList.remove("panel-active");
+    }
+  });
+  if (dictPanel) {
+    dictPanel.classList.add("panel-active");
+    dictPanel.classList.remove("is-hidden");
+  }
+  document.querySelectorAll(".menu-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.panel === "panel-dictionary");
+  });
+}
+
+if (!isAdminRoute) {
+  showAuthOnly("login");
+}
+
+if (isAdminRoute) {
+  const registerTab = document.querySelector('.auth-tab[data-auth-tab="register"]');
+  const loginTab = document.querySelector('.auth-tab[data-auth-tab="login"]');
+  const registerForm = document.querySelector('.auth-basic form[data-auth-tab="register"]');
+  const loginForm = document.querySelector('.auth-basic form[data-auth-tab="login"]');
+  if (registerTab) registerTab.classList.add("is-hidden");
+  if (registerForm) registerForm.classList.add("is-hidden");
+  if (loginTab) loginTab.classList.add("active");
+  if (loginForm) loginForm.classList.remove("is-hidden");
+  const registerButtons = document.querySelectorAll(
+    '.auth-basic form[data-auth-tab="register"] button, .auth-basic form[data-auth-tab="register"] .result'
+  );
+  registerButtons.forEach((el) => el.classList.add("is-hidden"));
 }
 
 const activeAuthTab = document.querySelector(".auth-tab.active");
@@ -973,6 +1188,33 @@ if (activeAuthTab) {
 }
 
 renderTokens();
-loadCurrentUser();
+loadCurrentUser().then((user) => {
+  if (!isAdminRoute) {
+    if (user && tokenStore.access) {
+      showDictionaryOnly();
+    } else {
+      showAuthOnly("login");
+    }
+  }
+});
 loadClafricaMap();
 loadLanguages();
+
+const params = new URLSearchParams(window.location.search);
+const verifyToken = params.get("verify_token");
+if (verifyToken) {
+  apiRequest({
+    endpoint: "/auth/verify/confirm",
+    method: "POST",
+    body: { token: verifyToken },
+  }).then((res) => {
+    if (res.ok) {
+      showToast("Email verified.");
+      params.delete("verify_token");
+      const cleanUrl = `${window.location.pathname}${params.toString() ? `?${params}` : ""}`;
+      window.history.replaceState({}, "", cleanUrl);
+    } else {
+      showToast("Verification failed.");
+    }
+  });
+}

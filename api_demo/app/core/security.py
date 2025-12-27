@@ -96,6 +96,13 @@ def is_super_admin(user: User) -> bool:
 		return False
 	return user.email.lower() == settings.SUPER_ADMIN_EMAIL.lower()
 
+def require_verified_user(user: User = Depends(get_current_user)) -> User:
+	if is_super_admin(user):
+		return user
+	if not user.is_verified:
+		raise HTTPException(status_code=403, detail="Email not verified")
+	return user
+
 def require_role(*allowed_roles: str):
 	def _role_guard(user: User = Depends(get_current_user)) -> User:
 		if is_super_admin(user):

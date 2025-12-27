@@ -18,4 +18,17 @@ class Settings:
 
 	WORD_LIST_PATH = os.getenv("WORD_LIST_PATH", "nufi_word_list.txt")
 
+	APP_BASE_URL = os.getenv("APP_BASE_URL", "http://localhost:8000")
+
+	SMTP_HOST = os.getenv("SMTP_HOST", "")
+	SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+	SMTP_USER = os.getenv("SMTP_USER", "")
+	SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+	SMTP_FROM = os.getenv("SMTP_FROM", "")
+	SMTP_USE_TLS = os.getenv("SMTP_USE_TLS", "true").lower() == "true"
+
+	GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+	GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
+	GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "")
+
 settings = Settings()

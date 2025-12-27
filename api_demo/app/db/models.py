@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, UniqueConstraint
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, UniqueConstraint, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.db.base import Base
@@ -10,6 +10,9 @@ class User(Base):
 	email = Column(String, unique=True, index=True, nullable=False)
 	password_hash = Column(String, nullable=False)
 	role = Column(String, nullable=False, default="user")  # "user" or "admin"
+	auth_provider = Column(String, nullable=False, default="local")
+	google_sub = Column(String, unique=True, nullable=True)
+	is_verified = Column(Boolean, nullable=False, default=False)
 	created_at = Column(DateTime, default=datetime.utcnow)
 	defined_count = Column(Integer, nullable=False, default=0)
 
@@ -51,3 +54,28 @@ class Language(Base):
 	created_at = Column(DateTime, default=datetime.utcnow)
 
 	words = relationship("Word", back_populates="language")
+
+class InviteCode(Base):
+	__tablename__ = "invite_codes"
+
+	id = Column(Integer, primary_key=True, index=True)
+	code = Column(String, unique=True, index=True, nullable=False)
+	created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+	used_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+	created_at = Column(DateTime, default=datetime.utcnow)
+	used_at = Column(DateTime, nullable=True)
+
+	created_by = relationship("User", foreign_keys=[created_by_id])
+	used_by = relationship("User", foreign_keys=[used_by_id])
+
+class EmailVerification(Base):
+	__tablename__ = "email_verifications"
+
+	id = Column(Integer, primary_key=True, index=True)
+	user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+	token = Column(String, unique=True, index=True, nullable=False)
+	expires_at = Column(DateTime, nullable=False)
+	used_at = Column(DateTime, nullable=True)
+	created_at = Column(DateTime, default=datetime.utcnow)
+
+	user = relationship("User")

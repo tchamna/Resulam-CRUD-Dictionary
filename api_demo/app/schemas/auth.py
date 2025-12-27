@@ -4,6 +4,7 @@ from pydantic import BaseModel, EmailStr, Field, validator
 class RegisterRequest(BaseModel):
 	email: EmailStr
 	password: str = Field(min_length=8, max_length=72)
+	invite_code: str = Field(min_length=6)
 
 	@validator("password")
 	def password_complexity(cls, v):
@@ -35,3 +36,12 @@ class ResetPasswordConfirmRequest(BaseModel):
 		if not any(c.isalpha() for c in v) or not any(c.isdigit() for c in v):
 			raise ValueError("Password must contain at least one letter and one digit")
 		return v
+
+class VerifyEmailRequest(BaseModel):
+	email: EmailStr
+
+class VerifyEmailConfirmRequest(BaseModel):
+	token: str
+
+class InviteCreateRequest(BaseModel):
+	quantity: int = Field(1, ge=1, le=10)

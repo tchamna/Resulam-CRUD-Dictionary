@@ -28,7 +28,7 @@
     </div>
   </header>
 
-  <nav class="menu">
+  <nav class="menu admin-only">
     <button class="menu-btn active" data-panel="panel-auth">Auth</button>
     <button class="menu-btn" data-panel="panel-dictionary">Dictionary</button>
     <button class="menu-btn" data-panel="panel-users">Users</button>
@@ -38,7 +38,7 @@
   <main class="panels">
     <section id="panel-auth" class="panel panel-active">
       <h2>Auth</h2>
-      <div class="sub-menu">
+      <div class="sub-menu admin-only">
         <button class="sub-menu-btn active" data-auth-view="basic">Basic</button>
         <button class="sub-menu-btn" data-auth-view="advanced">Advanced</button>
       </div>
@@ -48,18 +48,40 @@
             <button class="auth-tab active" data-auth-tab="register" type="button">Register</button>
             <button class="auth-tab" data-auth-tab="login" type="button">Login</button>
           </div>
-          <form data-endpoint="/auth/register" data-method="POST" data-auth-tab="register">
+          <form data-endpoint="/auth/register" data-method="POST" data-auth-tab="register" data-result-target="register-result">
             <label>Email<input name="email" type="email" required></label>
             <label>Password<input name="password" type="password" required></label>
+            <label class="invite-field">Invite code<input name="invite_code" type="text" required></label>
             <button type="submit">Create account</button>
+            <button id="google-login" type="button" class="ghost">Sign up with Google</button>
+            <label class="invite-field">Invite code (Google signup)<input id="google-invite" type="text"></label>
           </form>
+          <div id="register-result" class="result"></div>
           <form id="login-form" data-endpoint="/auth/login" data-method="POST" data-token-out="true" data-auth-tab="login">
             <label>Email<input name="email" type="email" required></label>
             <label>Password<input name="password" type="password" required></label>
             <button type="submit">Login</button>
           </form>
         </div>
-        <div class="auth-advanced is-hidden">
+        <div class="auth-advanced is-hidden admin-only">
+          <form data-endpoint="/auth/verify/request" data-method="POST">
+            <h3>Verify email request</h3>
+            <p class="hint">Sends a verification email if the account exists.</p>
+            <label>Email<input name="email" type="email" required></label>
+            <button type="submit">Send verification</button>
+          </form>
+          <form data-endpoint="/auth/verify/confirm" data-method="POST">
+            <h3>Verify email confirm</h3>
+            <p class="hint">Use the token from your verification email.</p>
+            <label>Token<input name="token" type="text" required></label>
+            <button type="submit">Confirm verification</button>
+          </form>
+          <form data-endpoint="/auth/invites" data-method="POST" data-auth="true" data-result-target="invite-result">
+            <h3>Create invite code (Admin)</h3>
+            <label>Quantity<input name="quantity" type="number" value="1" min="1" max="10" /></label>
+            <button type="submit">Create invite</button>
+          </form>
+          <div id="invite-result" class="result"></div>
           <form data-endpoint="/auth/refresh" data-method="POST" data-refresh="true" data-token-out="true">
             <h3>Refresh tokens</h3>
             <p class="hint">Uses the saved refresh token if you leave the field blank.</p>
@@ -86,6 +108,7 @@
     <section id="panel-dictionary" class="panel">
       <div class="panel-head">
         <h2 id="dictionary-title">Dictionary</h2>
+        <button id="logout-button" class="ghost small" type="button">Sign out</button>
         <div class="tools-wrap">
           <button id="toggle-tools" class="ghost small" type="button">Tools</button>
           <div id="tools-panel" class="toggle-panel is-hidden">
@@ -115,7 +138,6 @@
           </label>
           <div class="inline">
             <label>Limit<input name="limit" type="number" value="50" min="1" max="200" /></label>
-            <label>Offset<input name="offset" type="number" value="0" min="0" /></label>
           </div>
           <button type="submit">Fetch words</button>
         </form>
@@ -124,7 +146,7 @@
           <p class="hint">Random undefined words to define right away.</p>
           <input id="random-language-id" type="hidden" name="language_id" />
           <label>Count<input name="limit" type="number" value="10" min="1" max="50" /></label>
-          <button type="submit" class="ghost">Show 10 random words</button>
+          <button id="random-submit" type="submit" class="ghost">Show 10 random words</button>
         </form>
         <div id="dictionary-result" class="result"></div>
         <form id="definition-form" data-endpoint="/dictionary/:id" data-method="PUT" data-auth="true" data-result-target="definition-result">
@@ -150,7 +172,7 @@
       </div>
     </section>
 
-    <section id="panel-users" class="panel">
+    <section id="panel-users" class="panel admin-only">
       <h2>Users (Admin)</h2>
       <div class="forms">
         <form data-endpoint="/users" data-method="GET" data-auth="true" data-result-target="users-result">
@@ -175,7 +197,7 @@
       </div>
     </section>
 
-    <section id="panel-log" class="panel log-panel">
+    <section id="panel-log" class="panel log-panel admin-only">
       <h2>Response Log</h2>
       <div id="log" class="log"></div>
     </section>

@@ -6,7 +6,7 @@ from sqlalchemy import func
 from app.db.session import get_db
 from app.db.models import Word, User, Language
 from app.schemas.dictionary import WordUpdate, WordCreate, LanguageCreate
-from app.core.security import get_current_user, get_optional_user, require_role
+from app.core.security import get_current_user, get_optional_user, require_role, require_verified_user
 from app.core.clafrica import load_clafrica_map
 from app.core.config import settings
 from app.db.seed import resolve_word_list_path, seed_words
@@ -31,6 +31,7 @@ def list_words(
 		query = query.filter(Word.definition.is_not(None)).filter(Word.definition != "")
 	elif status == "undefined":
 		query = query.filter((Word.definition.is_(None)) | (Word.definition == ""))
+	query = query.order_by(Word.id.asc())
 	rows = query.offset(offset).limit(limit).all()
 	return [
 		{
@@ -92,7 +93,7 @@ def update_word(
 	payload: WordUpdate,
 	language_id: int = Query(..., ge=1),
 	db: Session = Depends(get_db),
-	user=Depends(get_optional_user),
+	user=Depends(require_verified_user),
 ):
 	word = db.query(Word).filter(Word.id == word_id, Word.language_id == language_id).first()
 	if not word:
@@ -103,8 +104,8 @@ def update_word(
 	word.synonyms = payload.synonyms
 	word.translation_fr = payload.translation_fr
 	word.translation_en = payload.translation_en
-	word.updated_by_id = user.id if user else None
-	if user and not was_defined and payload.definition.strip():
+	word.updated_by_id = user.id
+	if not was_defined and payload.definition.strip():
 		user.defined_count = (user.defined_count or 0) + 1
 	db.commit()
 	db.refresh(word)
@@ -115,7 +116,7 @@ def update_word(
 def create_word(
 	payload: WordCreate,
 	db: Session = Depends(get_db),
-	user=Depends(get_optional_user),
+	user=Depends(require_verified_user),
 ):
 	language = db.query(Language).filter(Language.id == payload.language_id).first()
 	if not language:
@@ -135,11 +136,10 @@ def create_word(
 		synonyms=payload.synonyms,
 		translation_fr=payload.translation_fr,
 		translation_en=payload.translation_en,
-		updated_by_id=user.id if user else None,
+		updated_by_id=user.id,
 	)
 	db.add(row)
-	if user:
-		user.defined_count = (user.defined_count or 0) + 1
+	user.defined_count = (user.defined_count or 0) + 1
 	db.commit()
 	db.refresh(row)
 	return {"status": "OK", "id": row.id, "word": row.word}
@@ -155,7 +155,7 @@ def list_languages(db: Session = Depends(get_db)):
 def create_language(
 	payload: LanguageCreate,
 	db: Session = Depends(get_db),
-	user=Depends(get_current_user),
+	user=Depends(require_verified_user),
 ):
 	slug = payload.name.lower().replace("'", "").replace(" ", "-")
 	exists = db.query(Language).filter(Language.slug == slug).first()

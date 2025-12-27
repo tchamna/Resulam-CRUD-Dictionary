@@ -8,7 +8,9 @@ FastAPI demo for building an African language dictionary with JWT auth and a lig
 - Preloaded word list from a local file (Nufi by default).
 - Case-insensitive search + pagination on word lists.
 - Status filter (defined/undefined/all).
-- Contributors can fill/update definitions and translations.
+- Contributors can fill/update definitions and translations (verified users only).
+- Invite-only signup + email verification.
+- Google OAuth login (optional).
 - Admin role management by email.
 - Simple UI for contributing definitions with Clafrica input.
 
@@ -51,6 +53,16 @@ Environment variables (defaults shown):
 - `SUPER_ADMIN_EMAIL=superadmin@example.com`
 - `SUPER_ADMIN_PASSWORD=superadmin`
 - `WORD_LIST_PATH=nufi_word_list.txt`
+- `APP_BASE_URL=http://localhost:8000`
+- `SMTP_HOST=`
+- `SMTP_PORT=587`
+- `SMTP_USER=`
+- `SMTP_PASSWORD=`
+- `SMTP_FROM=`
+- `SMTP_USE_TLS=true`
+- `GOOGLE_CLIENT_ID=`
+- `GOOGLE_CLIENT_SECRET=`
+- `GOOGLE_REDIRECT_URI=`
 
 ## Super admin
 On startup, the app creates (or updates) a super admin account using the env vars above.
@@ -95,6 +107,11 @@ Auth:
 - `POST /auth/refresh`
 - `POST /auth/password-reset/request`
 - `POST /auth/password-reset/confirm`
+- `POST /auth/verify/request`
+- `POST /auth/verify/confirm`
+- `POST /auth/invites` (admin)
+- `GET /auth/google/login`
+- `GET /auth/google/callback`
 
 Dictionary:
 - `GET /dictionary?language_id=...`
