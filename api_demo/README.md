@@ -85,6 +85,29 @@ Each word can include:
 - Translation in French
 - Translation in English
 
+## WAL archiving + PITR (S3)
+This project supports WAL-G for continuous WAL archiving and point-in-time recovery.
+
+Required env vars:
+- `WALG_S3_PREFIX=s3://your-bucket/wal`
+- `AWS_REGION=us-east-1`
+- `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` (or attach an IAM role to EC2)
+
+Base backups:
+```bash
+./scripts/backup_walg.sh
+```
+
+Restore (PITR outline):
+1) Stop the db container.
+2) Restore a base backup:
+```bash
+docker compose -f api_demo/docker-compose.yml exec -T db wal-g backup-fetch /var/lib/postgresql/data LATEST
+```
+3) Set `recovery_target_time` (or other target) in `postgresql.conf`, then start db.
+
+Note: Use WAL-G + periodic base backups for professional-grade recovery.
+
 ## Migrations (Postgres)
 ```bash
 alembic upgrade head

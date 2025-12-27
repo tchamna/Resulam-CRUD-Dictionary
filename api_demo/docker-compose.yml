@@ -1,23 +1,42 @@
 services:
   db:
-    image: postgres:16
+    build:
+      context: .
+      dockerfile: docker/postgres/Dockerfile
     environment:
-      POSTGRES_DB: african_dictionaries
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-african_dictionaries}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      WALG_S3_PREFIX: ${WALG_S3_PREFIX:-}
+      WALG_COMPRESSION_METHOD: ${WALG_COMPRESSION_METHOD:-brotli}
+      AWS_REGION: ${AWS_REGION:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
     volumes:
       - api_demo_db:/var/lib/postgresql/data
+      - ./docker/postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
+    command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf"]
 
   web:
     build: .
     environment:
-      DATABASE_URL: postgresql+psycopg2://postgres:postgres@db:5432/african_dictionaries
-      JWT_SECRET: dev-secret-change-me
-      SUPER_ADMIN_EMAIL: superadmin@example.com
-      SUPER_ADMIN_PASSWORD: superadmin
-      WORD_LIST_PATH: nufi_word_list.txt
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://postgres:postgres@db:5432/african_dictionaries}
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-superadmin@example.com}
+      SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:-superadmin}
+      WORD_LIST_PATH: ${WORD_LIST_PATH:-nufi_word_list.txt}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:8000}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_USE_TLS: ${SMTP_USE_TLS:-true}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-}
     depends_on:
       - db
     ports:

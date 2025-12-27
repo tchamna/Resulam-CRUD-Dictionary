@@ -1,0 +1,109 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-ec2
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2-key.pem
+          chmod 600 ~/.ssh/ec2-key.pem
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Deploy on EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER || 'ec2-user' }}
+          APP_DIR: ${{ secrets.APP_DIR || '/home/ec2-user/apps/resulam_dictionary' }}
+          REPO_URL: https://github.com/${{ github.repository }}.git
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          S3_PREFIX: ${{ secrets.S3_PREFIX || 'backups' }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          SUPER_ADMIN_EMAIL: ${{ secrets.SUPER_ADMIN_EMAIL }}
+          SUPER_ADMIN_PASSWORD: ${{ secrets.SUPER_ADMIN_PASSWORD }}
+          WORD_LIST_PATH: ${{ secrets.WORD_LIST_PATH || 'nufi_word_list.txt' }}
+          APP_BASE_URL: ${{ secrets.APP_BASE_URL || 'https://example.com' }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT || '587' }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_FROM: ${{ secrets.SMTP_FROM }}
+          SMTP_USE_TLS: ${{ secrets.SMTP_USE_TLS || 'true' }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REDIRECT_URI: ${{ secrets.GOOGLE_REDIRECT_URI }}
+          AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION || 'us-east-1' }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          S3_PREFIX: ${{ secrets.S3_PREFIX || 'backups' }}
+          WALG_S3_PREFIX: ${{ secrets.WALG_S3_PREFIX }}
+          WALG_COMPRESSION_METHOD: ${{ secrets.WALG_COMPRESSION_METHOD || 'brotli' }}
+          CRON_SCHEDULE: ${{ secrets.BACKUP_CRON || '*/5 * * * *' }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/ec2-key.pem -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ServerAliveCountMax=10 "$EC2_USER@$EC2_HOST" "set -euo pipefail; \
+            sudo yum -y install docker git awscli postgresql || true; \
+            sudo service docker start || sudo systemctl start docker; \
+            sudo usermod -aG docker '$EC2_USER' || true; \
+            mkdir -p '$APP_DIR'; \
+            cd '$APP_DIR'; \
+            if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then \
+              git init; \
+              git remote add origin '$REPO_URL'; \
+            fi; \
+            git fetch origin main; \
+            git reset --hard origin/main; \
+            git clean -fd -e .env || true; \
+            cd api_demo; \
+            cat > .env <<'EOF' \
+DATABASE_URL=$DATABASE_URL
+JWT_SECRET=$JWT_SECRET
+SUPER_ADMIN_EMAIL=$SUPER_ADMIN_EMAIL
+SUPER_ADMIN_PASSWORD=$SUPER_ADMIN_PASSWORD
+WORD_LIST_PATH=$WORD_LIST_PATH
+APP_BASE_URL=$APP_BASE_URL
+SMTP_HOST=$SMTP_HOST
+SMTP_PORT=$SMTP_PORT
+SMTP_USER=$SMTP_USER
+SMTP_PASSWORD=$SMTP_PASSWORD
+SMTP_FROM=$SMTP_FROM
+SMTP_USE_TLS=$SMTP_USE_TLS
+GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET
+GOOGLE_REDIRECT_URI=$GOOGLE_REDIRECT_URI
+AWS_REGION=$AWS_REGION
+AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+S3_BUCKET=$S3_BUCKET
+S3_PREFIX=$S3_PREFIX
+WALG_S3_PREFIX=$WALG_S3_PREFIX
+WALG_COMPRESSION_METHOD=$WALG_COMPRESSION_METHOD
+EOF
+            cd ..; \
+            chmod +x scripts/backup_to_s3.sh scripts/backup_walg.sh scripts/deploy/setup_backup_cron.sh scripts/deploy/setup_walg_backup_cron.sh || true; \
+            docker compose -f api_demo/docker-compose.yml up -d --build; \
+            docker compose -f api_demo/docker-compose.yml exec -T web alembic upgrade head; \
+            APP_DIR='$APP_DIR' S3_BUCKET='$S3_BUCKET' S3_PREFIX='$S3_PREFIX' DATABASE_URL='$DATABASE_URL' CRON_SCHEDULE='$CRON_SCHEDULE' \
+              bash scripts/deploy/setup_backup_cron.sh; \
+            APP_DIR='$APP_DIR' WALG_S3_PREFIX='$WALG_S3_PREFIX' CRON_SCHEDULE='$CRON_SCHEDULE' \
+              bash scripts/deploy/setup_walg_backup_cron.sh"
