@@ -99,6 +99,7 @@ jobs:
               > .env; \
             cd ..; \
             chmod +x scripts/backup_to_s3.sh scripts/backup_walg.sh scripts/deploy/setup_backup_cron.sh scripts/deploy/setup_walg_backup_cron.sh || true; \
+            COMPOSE_CMD=''; \
             if docker compose version >/dev/null 2>&1; then \
               COMPOSE_CMD='docker compose'; \
             elif command -v docker-compose >/dev/null 2>&1; then \
@@ -110,9 +111,12 @@ jobs:
               elif command -v docker-compose >/dev/null 2>&1; then \
                 COMPOSE_CMD='docker-compose'; \
               else \
-                echo 'docker compose is not available' >&2; \
-                exit 1; \
+                COMPOSE_CMD=''; \
               fi; \
+            fi; \
+            if [ -z \"$COMPOSE_CMD\" ]; then \
+              echo 'docker compose is not available' >&2; \
+              exit 1; \
             fi; \
             $COMPOSE_CMD -f api_demo/docker-compose.yml up -d --build; \
             $COMPOSE_CMD -f api_demo/docker-compose.yml exec -T web alembic upgrade head; \
