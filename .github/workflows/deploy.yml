@@ -99,27 +99,25 @@ jobs:
               > .env; \
             cd ..; \
             chmod +x scripts/backup_to_s3.sh scripts/backup_walg.sh scripts/deploy/setup_backup_cron.sh scripts/deploy/setup_walg_backup_cron.sh || true; \
-            COMPOSE_CMD=''; \
             if docker compose version >/dev/null 2>&1; then \
-              COMPOSE_CMD='docker compose'; \
+              docker compose -f api_demo/docker-compose.yml up -d --build; \
+              docker compose -f api_demo/docker-compose.yml exec -T web alembic upgrade head; \
             elif command -v docker-compose >/dev/null 2>&1; then \
-              COMPOSE_CMD='docker-compose'; \
+              docker-compose -f api_demo/docker-compose.yml up -d --build; \
+              docker-compose -f api_demo/docker-compose.yml exec -T web alembic upgrade head; \
             else \
               sudo yum -y install docker-compose-plugin docker-compose || true; \
               if docker compose version >/dev/null 2>&1; then \
-                COMPOSE_CMD='docker compose'; \
+                docker compose -f api_demo/docker-compose.yml up -d --build; \
+                docker compose -f api_demo/docker-compose.yml exec -T web alembic upgrade head; \
               elif command -v docker-compose >/dev/null 2>&1; then \
-                COMPOSE_CMD='docker-compose'; \
+                docker-compose -f api_demo/docker-compose.yml up -d --build; \
+                docker-compose -f api_demo/docker-compose.yml exec -T web alembic upgrade head; \
               else \
-                COMPOSE_CMD=''; \
+                echo 'docker compose is not available' >&2; \
+                exit 1; \
               fi; \
             fi; \
-            if [ -z \"\\$COMPOSE_CMD\" ]; then \
-              echo 'docker compose is not available' >&2; \
-              exit 1; \
-            fi; \
-            \\$COMPOSE_CMD -f api_demo/docker-compose.yml up -d --build; \
-            \\$COMPOSE_CMD -f api_demo/docker-compose.yml exec -T web alembic upgrade head; \
             APP_DIR='$APP_DIR' S3_BUCKET='$S3_BUCKET' S3_PREFIX='$S3_PREFIX' DATABASE_URL='$DATABASE_URL' CRON_SCHEDULE='$CRON_SCHEDULE' \
               bash scripts/deploy/setup_backup_cron.sh; \
             APP_DIR='$APP_DIR' WALG_S3_PREFIX='$WALG_S3_PREFIX' CRON_SCHEDULE='$CRON_SCHEDULE' \
