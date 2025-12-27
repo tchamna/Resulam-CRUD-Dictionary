@@ -24,39 +24,39 @@ jobs:
       - name: Create SSH key
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2-key.pem
+          echo "${{ secrets.EC2_SSH_KEY || vars.EC2_SSH_KEY }}" > ~/.ssh/ec2-key.pem
           chmod 600 ~/.ssh/ec2-key.pem
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+          ssh-keyscan -H ${{ secrets.EC2_HOST || vars.EC2_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Deploy on EC2
         env:
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-          EC2_USER: ${{ secrets.EC2_USER || 'ec2-user' }}
-          APP_DIR: ${{ secrets.APP_DIR || '/home/ec2-user/apps/resulam_dictionary' }}
+          EC2_HOST: ${{ secrets.EC2_HOST || vars.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER || vars.EC2_USER || 'ec2-user' }}
+          APP_DIR: ${{ secrets.APP_DIR || vars.APP_DIR || '/home/ec2-user/apps/resulam_dictionary' }}
           REPO_URL: https://github.com/${{ github.repository }}.git
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          SUPER_ADMIN_EMAIL: ${{ secrets.SUPER_ADMIN_EMAIL }}
-          SUPER_ADMIN_PASSWORD: ${{ secrets.SUPER_ADMIN_PASSWORD }}
-          WORD_LIST_PATH: ${{ secrets.WORD_LIST_PATH || 'nufi_word_list.txt' }}
-          APP_BASE_URL: ${{ secrets.APP_BASE_URL || 'https://example.com' }}
-          SMTP_HOST: ${{ secrets.SMTP_HOST }}
-          SMTP_PORT: ${{ secrets.SMTP_PORT || '587' }}
-          SMTP_USER: ${{ secrets.SMTP_USER }}
-          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-          SMTP_FROM: ${{ secrets.SMTP_FROM }}
-          SMTP_USE_TLS: ${{ secrets.SMTP_USE_TLS || 'true' }}
-          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-          GOOGLE_REDIRECT_URI: ${{ secrets.GOOGLE_REDIRECT_URI }}
-          AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION || 'us-east-1' }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          S3_BUCKET: ${{ secrets.S3_BUCKET }}
-          S3_PREFIX: ${{ secrets.S3_PREFIX || 'backups' }}
-          WALG_S3_PREFIX: ${{ secrets.WALG_S3_PREFIX }}
-          WALG_COMPRESSION_METHOD: ${{ secrets.WALG_COMPRESSION_METHOD || 'brotli' }}
-          CRON_SCHEDULE: ${{ secrets.BACKUP_CRON || '*/5 * * * *' }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL || vars.DATABASE_URL }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET || vars.JWT_SECRET }}
+          SUPER_ADMIN_EMAIL: ${{ secrets.SUPER_ADMIN_EMAIL || vars.SUPER_ADMIN_EMAIL }}
+          SUPER_ADMIN_PASSWORD: ${{ secrets.SUPER_ADMIN_PASSWORD || vars.SUPER_ADMIN_PASSWORD }}
+          WORD_LIST_PATH: ${{ secrets.WORD_LIST_PATH || vars.WORD_LIST_PATH || 'nufi_word_list.txt' }}
+          APP_BASE_URL: ${{ secrets.APP_BASE_URL || vars.APP_BASE_URL || 'https://example.com' }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST || vars.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT || vars.SMTP_PORT || '587' }}
+          SMTP_USER: ${{ secrets.SMTP_USER || vars.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD || vars.SMTP_PASSWORD }}
+          SMTP_FROM: ${{ secrets.SMTP_FROM || vars.SMTP_FROM }}
+          SMTP_USE_TLS: ${{ secrets.SMTP_USE_TLS || vars.SMTP_USE_TLS || 'true' }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID || vars.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET || vars.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REDIRECT_URI: ${{ secrets.GOOGLE_REDIRECT_URI || vars.GOOGLE_REDIRECT_URI }}
+          AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION || vars.AWS_DEFAULT_REGION || 'us-east-1' }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID || vars.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY || vars.AWS_SECRET_ACCESS_KEY }}
+          S3_BUCKET: ${{ secrets.S3_BUCKET || vars.S3_BUCKET }}
+          S3_PREFIX: ${{ secrets.S3_PREFIX || vars.S3_PREFIX || 'backups' }}
+          WALG_S3_PREFIX: ${{ secrets.WALG_S3_PREFIX || vars.WALG_S3_PREFIX }}
+          WALG_COMPRESSION_METHOD: ${{ secrets.WALG_COMPRESSION_METHOD || vars.WALG_COMPRESSION_METHOD || 'brotli' }}
+          CRON_SCHEDULE: ${{ secrets.BACKUP_CRON || vars.BACKUP_CRON || '*/5 * * * *' }}
         run: |
           set -euo pipefail
           ssh -i ~/.ssh/ec2-key.pem -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ServerAliveCountMax=10 "$EC2_USER@$EC2_HOST" "set -euo pipefail; \
@@ -105,9 +105,21 @@ jobs:
             fi; \
             if command -v docker-compose >/dev/null 2>&1; then \
               docker-compose -f api_demo/docker-compose.yml up -d --build; \
+              for i in $(seq 1 30); do \
+                if docker-compose -f api_demo/docker-compose.yml exec -T db pg_isready -U postgres -d african_dictionaries >/dev/null 2>&1; then \
+                  break; \
+                fi; \
+                sleep 2; \
+              done; \
               docker-compose -f api_demo/docker-compose.yml exec -T web alembic upgrade head; \
             elif docker compose version >/dev/null 2>&1; then \
               docker compose -f api_demo/docker-compose.yml up -d --build; \
+              for i in $(seq 1 30); do \
+                if docker compose -f api_demo/docker-compose.yml exec -T db pg_isready -U postgres -d african_dictionaries >/dev/null 2>&1; then \
+                  break; \
+                fi; \
+                sleep 2; \
+              done; \
               docker compose -f api_demo/docker-compose.yml exec -T web alembic upgrade head; \
             else \
               echo 'docker compose is not available' >&2; \
