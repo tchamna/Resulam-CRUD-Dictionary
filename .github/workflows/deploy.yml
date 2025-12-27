@@ -60,7 +60,7 @@ jobs:
         run: |
           set -euo pipefail
           ssh -i ~/.ssh/ec2-key.pem -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ServerAliveCountMax=10 "$EC2_USER@$EC2_HOST" "set -euo pipefail; \
-            sudo yum -y install docker git awscli postgresql15 cronie curl || true; \
+            sudo yum -y install docker git awscli postgresql15 cronie || true; \
             sudo service docker start || sudo systemctl start docker; \
             sudo usermod -aG docker '$EC2_USER' || true; \
             mkdir -p '$APP_DIR'; \
@@ -99,7 +99,7 @@ jobs:
               > .env; \
             cd ..; \
             chmod +x scripts/backup_to_s3.sh scripts/backup_walg.sh scripts/deploy/setup_backup_cron.sh scripts/deploy/setup_walg_backup_cron.sh || true; \
-            if ! command -v docker-compose >/dev/null 2>&1; then \
+            if ! command -v docker-compose >/dev/null 2>&1 || ! docker-compose --version 2>/dev/null | grep -q 'version 1\\.'; then \
               sudo curl -L https://github.com/docker/compose/releases/download/1.29.2/docker-compose-Linux-x86_64 -o /usr/local/bin/docker-compose; \
               sudo chmod +x /usr/local/bin/docker-compose; \
             fi; \
