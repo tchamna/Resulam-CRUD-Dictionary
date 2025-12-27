@@ -84,52 +84,60 @@ jobs:
           WALG_S3_PREFIX=$WALG_S3_PREFIX
           WALG_COMPRESSION_METHOD=$WALG_COMPRESSION_METHOD
           EOF
-          ssh -i ~/.ssh/ec2-key.pem -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ServerAliveCountMax=10 "$EC2_USER@$EC2_HOST" "set -euo pipefail; \
-            sudo yum -y install docker git awscli postgresql15 cronie || true; \
-            sudo service docker start || sudo systemctl start docker; \
-            sudo usermod -aG docker '$EC2_USER' || true; \
-            mkdir -p '$APP_DIR'; \
-            cd '$APP_DIR'; \
-            if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then \
-              git init; \
-              git remote add origin '$REPO_URL'; \
-            fi; \
-            git fetch origin main; \
-            git reset --hard origin/main; \
-            git clean -fd -e .env || true; \
-            cd api_demo"
+          ssh -i ~/.ssh/ec2-key.pem -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ServerAliveCountMax=10 \
+            "$EC2_USER@$EC2_HOST" APP_DIR="$APP_DIR" REPO_URL="$REPO_URL" bash -s <<'SSHINIT'
+          set -euo pipefail
+          sudo yum -y install docker git awscli postgresql15 cronie || true
+          sudo service docker start || sudo systemctl start docker
+          sudo usermod -aG docker "$USER" || true
+          mkdir -p "$APP_DIR"
+          cd "$APP_DIR"
+          if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+            git init
+            git remote add origin "$REPO_URL"
+          fi
+          git fetch origin main
+          git reset --hard origin/main
+          git clean -fd -e .env || true
+          SSHINIT
           scp -i ~/.ssh/ec2-key.pem -o StrictHostKeyChecking=no "$env_file" "$EC2_USER@$EC2_HOST:$APP_DIR/api_demo/.env"
           rm -f "$env_file"
-          ssh -i ~/.ssh/ec2-key.pem -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ServerAliveCountMax=10 "$EC2_USER@$EC2_HOST" "set -euo pipefail; \
-            cd '$APP_DIR'; \
-            chmod +x scripts/backup_to_s3.sh scripts/backup_walg.sh scripts/deploy/setup_backup_cron.sh scripts/deploy/setup_walg_backup_cron.sh || true; \
-            if ! command -v docker-compose >/dev/null 2>&1 || ! docker-compose --version 2>/dev/null | grep -q 'version 1\\.'; then \
-              sudo curl -L https://github.com/docker/compose/releases/download/1.29.2/docker-compose-Linux-x86_64 -o /usr/local/bin/docker-compose; \
-              sudo chmod +x /usr/local/bin/docker-compose; \
-            fi; \
-            if command -v docker-compose >/dev/null 2>&1; then \
-              docker-compose -f api_demo/docker-compose.yml up -d --build; \
-              for i in $(seq 1 30); do \
-                if docker-compose -f api_demo/docker-compose.yml exec -T db pg_isready -U postgres -d african_dictionaries >/dev/null 2>&1; then \
-                  break; \
-                fi; \
-                sleep 2; \
-              done; \
-              docker-compose -f api_demo/docker-compose.yml exec -T web alembic upgrade head; \
-            elif docker compose version >/dev/null 2>&1; then \
-              docker compose -f api_demo/docker-compose.yml up -d --build; \
-              for i in $(seq 1 30); do \
-                if docker compose -f api_demo/docker-compose.yml exec -T db pg_isready -U postgres -d african_dictionaries >/dev/null 2>&1; then \
-                  break; \
-                fi; \
-                sleep 2; \
-              done; \
-              docker compose -f api_demo/docker-compose.yml exec -T web alembic upgrade head; \
-            else \
-              echo 'docker compose is not available' >&2; \
-              exit 1; \
-            fi; \
-            APP_DIR='$APP_DIR' S3_BUCKET='$S3_BUCKET' S3_PREFIX='$S3_PREFIX' DATABASE_URL='$DATABASE_URL' CRON_SCHEDULE='$CRON_SCHEDULE' \
-              bash scripts/deploy/setup_backup_cron.sh; \
-            APP_DIR='$APP_DIR' WALG_S3_PREFIX='$WALG_S3_PREFIX' CRON_SCHEDULE='$CRON_SCHEDULE' \
-              bash scripts/deploy/setup_walg_backup_cron.sh"
+          ssh -i ~/.ssh/ec2-key.pem -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ServerAliveCountMax=10 \
+            "$EC2_USER@$EC2_HOST" APP_DIR="$APP_DIR" bash -s <<'SSHDEPLOY'
+          set -euo pipefail
+          cd "$APP_DIR"
+          set -a
+          . api_demo/.env
+          set +a
+          chmod +x scripts/backup_to_s3.sh scripts/backup_walg.sh scripts/deploy/setup_backup_cron.sh scripts/deploy/setup_walg_backup_cron.sh || true
+          if ! command -v docker-compose >/dev/null 2>&1 || ! docker-compose --version 2>/dev/null | grep -q 'version 1\.'; then
+            sudo curl -L https://github.com/docker/compose/releases/download/1.29.2/docker-compose-Linux-x86_64 -o /usr/local/bin/docker-compose
+            sudo chmod +x /usr/local/bin/docker-compose
+          fi
+          if command -v docker-compose >/dev/null 2>&1; then
+            docker-compose -f api_demo/docker-compose.yml up -d --build
+            for i in $(seq 1 30); do
+              if docker-compose -f api_demo/docker-compose.yml exec -T db pg_isready -U postgres -d african_dictionaries >/dev/null 2>&1; then
+                break
+              fi
+              sleep 2
+            done
+            docker-compose -f api_demo/docker-compose.yml exec -T web alembic upgrade head
+          elif docker compose version >/dev/null 2>&1; then
+            docker compose -f api_demo/docker-compose.yml up -d --build
+            for i in $(seq 1 30); do
+              if docker compose -f api_demo/docker-compose.yml exec -T db pg_isready -U postgres -d african_dictionaries >/dev/null 2>&1; then
+                break
+              fi
+              sleep 2
+            done
+            docker compose -f api_demo/docker-compose.yml exec -T web alembic upgrade head
+          else
+            echo 'docker compose is not available' >&2
+            exit 1
+          fi
+          APP_DIR="$APP_DIR" S3_BUCKET="$S3_BUCKET" S3_PREFIX="$S3_PREFIX" DATABASE_URL="$DATABASE_URL" CRON_SCHEDULE="$CRON_SCHEDULE" \
+            bash scripts/deploy/setup_backup_cron.sh
+          APP_DIR="$APP_DIR" WALG_S3_PREFIX="$WALG_S3_PREFIX" CRON_SCHEDULE="$CRON_SCHEDULE" \
+            bash scripts/deploy/setup_walg_backup_cron.sh
+          SSHDEPLOY
