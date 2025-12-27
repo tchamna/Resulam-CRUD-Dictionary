@@ -60,7 +60,7 @@ jobs:
         run: |
           set -euo pipefail
           ssh -i ~/.ssh/ec2-key.pem -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ServerAliveCountMax=10 "$EC2_USER@$EC2_HOST" "set -euo pipefail; \
-            sudo yum -y install docker git awscli postgresql15 docker-compose-plugin cronie || true; \
+            sudo yum -y install docker git awscli postgresql15 cronie curl || true; \
             sudo service docker start || sudo systemctl start docker; \
             sudo usermod -aG docker '$EC2_USER' || true; \
             mkdir -p '$APP_DIR'; \
@@ -99,24 +99,19 @@ jobs:
               > .env; \
             cd ..; \
             chmod +x scripts/backup_to_s3.sh scripts/backup_walg.sh scripts/deploy/setup_backup_cron.sh scripts/deploy/setup_walg_backup_cron.sh || true; \
-            if docker compose version >/dev/null 2>&1; then \
-              docker compose -f api_demo/docker-compose.yml up -d --build; \
-              docker compose -f api_demo/docker-compose.yml exec -T web alembic upgrade head; \
-            elif command -v docker-compose >/dev/null 2>&1; then \
+            if ! command -v docker-compose >/dev/null 2>&1; then \
+              sudo curl -L https://github.com/docker/compose/releases/download/1.29.2/docker-compose-Linux-x86_64 -o /usr/local/bin/docker-compose; \
+              sudo chmod +x /usr/local/bin/docker-compose; \
+            fi; \
+            if command -v docker-compose >/dev/null 2>&1; then \
               docker-compose -f api_demo/docker-compose.yml up -d --build; \
               docker-compose -f api_demo/docker-compose.yml exec -T web alembic upgrade head; \
+            elif docker compose version >/dev/null 2>&1; then \
+              docker compose -f api_demo/docker-compose.yml up -d --build; \
+              docker compose -f api_demo/docker-compose.yml exec -T web alembic upgrade head; \
             else \
-              sudo yum -y install docker-compose-plugin docker-compose || true; \
-              if docker compose version >/dev/null 2>&1; then \
-                docker compose -f api_demo/docker-compose.yml up -d --build; \
-                docker compose -f api_demo/docker-compose.yml exec -T web alembic upgrade head; \
-              elif command -v docker-compose >/dev/null 2>&1; then \
-                docker-compose -f api_demo/docker-compose.yml up -d --build; \
-                docker-compose -f api_demo/docker-compose.yml exec -T web alembic upgrade head; \
-              else \
-                echo 'docker compose is not available' >&2; \
-                exit 1; \
-              fi; \
+              echo 'docker compose is not available' >&2; \
+              exit 1; \
             fi; \
             APP_DIR='$APP_DIR' S3_BUCKET='$S3_BUCKET' S3_PREFIX='$S3_PREFIX' DATABASE_URL='$DATABASE_URL' CRON_SCHEDULE='$CRON_SCHEDULE' \
               bash scripts/deploy/setup_backup_cron.sh; \
