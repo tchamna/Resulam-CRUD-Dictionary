@@ -115,23 +115,49 @@ jobs:
             sudo chmod +x /usr/local/bin/docker-compose
           fi
           if command -v docker-compose >/dev/null 2>&1; then
-            docker-compose -f api_demo/docker-compose.yml up -d --build
-            for i in $(seq 1 30); do
-              if docker-compose -f api_demo/docker-compose.yml exec -T db pg_isready -U postgres -d african_dictionaries >/dev/null 2>&1; then
+            docker-compose -f api_demo/docker-compose.yml up -d --build db
+            db_ready=false
+            for i in $(seq 1 60); do
+              if docker-compose -f api_demo/docker-compose.yml exec -T db pg_isready -U postgres >/dev/null 2>&1; then
+                db_ready=true
                 break
               fi
               sleep 2
             done
-            docker-compose -f api_demo/docker-compose.yml exec -T web alembic upgrade head
+            if [ "$db_ready" != "true" ]; then
+              docker-compose -f api_demo/docker-compose.yml ps
+              docker-compose -f api_demo/docker-compose.yml logs db --tail 200
+              exit 1
+            fi
+            docker-compose -f api_demo/docker-compose.yml up -d --build web
+            for i in $(seq 1 5); do
+              if docker-compose -f api_demo/docker-compose.yml exec -T web alembic upgrade head; then
+                break
+              fi
+              sleep 5
+            done
           elif docker compose version >/dev/null 2>&1; then
-            docker compose -f api_demo/docker-compose.yml up -d --build
-            for i in $(seq 1 30); do
-              if docker compose -f api_demo/docker-compose.yml exec -T db pg_isready -U postgres -d african_dictionaries >/dev/null 2>&1; then
+            docker compose -f api_demo/docker-compose.yml up -d --build db
+            db_ready=false
+            for i in $(seq 1 60); do
+              if docker compose -f api_demo/docker-compose.yml exec -T db pg_isready -U postgres >/dev/null 2>&1; then
+                db_ready=true
                 break
               fi
               sleep 2
             done
-            docker compose -f api_demo/docker-compose.yml exec -T web alembic upgrade head
+            if [ "$db_ready" != "true" ]; then
+              docker compose -f api_demo/docker-compose.yml ps
+              docker compose -f api_demo/docker-compose.yml logs db --tail 200
+              exit 1
+            fi
+            docker compose -f api_demo/docker-compose.yml up -d --build web
+            for i in $(seq 1 5); do
+              if docker compose -f api_demo/docker-compose.yml exec -T web alembic upgrade head; then
+                break
+              fi
+              sleep 5
+            done
           else
             echo 'docker compose is not available' >&2
             exit 1
