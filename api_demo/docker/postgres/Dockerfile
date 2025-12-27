@@ -5,8 +5,11 @@ ARG WALG_VERSION=2.0.1
 RUN apt-get update \
   && apt-get install -y --no-install-recommends curl ca-certificates \
   && curl -L "https://github.com/wal-g/wal-g/releases/download/v${WALG_VERSION}/wal-g-pg-ubuntu-20.04-amd64.tar.gz" \
-    | tar -xz -C /usr/local/bin wal-g \
+    -o /tmp/wal-g.tar.gz \
+  && tar -xz -C /usr/local/bin -f /tmp/wal-g.tar.gz wal-g-pg-ubuntu-20.04-amd64 \
+  && mv /usr/local/bin/wal-g-pg-ubuntu-20.04-amd64 /usr/local/bin/wal-g \
   && chmod +x /usr/local/bin/wal-g \
+  && rm -f /tmp/wal-g.tar.gz \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
