@@ -73,30 +73,30 @@ jobs:
             git reset --hard origin/main; \
             git clean -fd -e .env || true; \
             cd api_demo; \
-            cat > .env <<'EOF' \
-DATABASE_URL=$DATABASE_URL
-JWT_SECRET=$JWT_SECRET
-SUPER_ADMIN_EMAIL=$SUPER_ADMIN_EMAIL
-SUPER_ADMIN_PASSWORD=$SUPER_ADMIN_PASSWORD
-WORD_LIST_PATH=$WORD_LIST_PATH
-APP_BASE_URL=$APP_BASE_URL
-SMTP_HOST=$SMTP_HOST
-SMTP_PORT=$SMTP_PORT
-SMTP_USER=$SMTP_USER
-SMTP_PASSWORD=$SMTP_PASSWORD
-SMTP_FROM=$SMTP_FROM
-SMTP_USE_TLS=$SMTP_USE_TLS
-GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID
-GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET
-GOOGLE_REDIRECT_URI=$GOOGLE_REDIRECT_URI
-AWS_REGION=$AWS_REGION
-AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
-AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
-S3_BUCKET=$S3_BUCKET
-S3_PREFIX=$S3_PREFIX
-WALG_S3_PREFIX=$WALG_S3_PREFIX
-WALG_COMPRESSION_METHOD=$WALG_COMPRESSION_METHOD
-EOF
+            printf '%s\n' \
+              "DATABASE_URL=$DATABASE_URL" \
+              "JWT_SECRET=$JWT_SECRET" \
+              "SUPER_ADMIN_EMAIL=$SUPER_ADMIN_EMAIL" \
+              "SUPER_ADMIN_PASSWORD=$SUPER_ADMIN_PASSWORD" \
+              "WORD_LIST_PATH=$WORD_LIST_PATH" \
+              "APP_BASE_URL=$APP_BASE_URL" \
+              "SMTP_HOST=$SMTP_HOST" \
+              "SMTP_PORT=$SMTP_PORT" \
+              "SMTP_USER=$SMTP_USER" \
+              "SMTP_PASSWORD=$SMTP_PASSWORD" \
+              "SMTP_FROM=$SMTP_FROM" \
+              "SMTP_USE_TLS=$SMTP_USE_TLS" \
+              "GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID" \
+              "GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET" \
+              "GOOGLE_REDIRECT_URI=$GOOGLE_REDIRECT_URI" \
+              "AWS_REGION=$AWS_REGION" \
+              "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" \
+              "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" \
+              "S3_BUCKET=$S3_BUCKET" \
+              "S3_PREFIX=$S3_PREFIX" \
+              "WALG_S3_PREFIX=$WALG_S3_PREFIX" \
+              "WALG_COMPRESSION_METHOD=$WALG_COMPRESSION_METHOD" \
+              > .env; \
             cd ..; \
             chmod +x scripts/backup_to_s3.sh scripts/backup_walg.sh scripts/deploy/setup_backup_cron.sh scripts/deploy/setup_walg_backup_cron.sh || true; \
             docker compose -f api_demo/docker-compose.yml up -d --build; \
