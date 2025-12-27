@@ -34,8 +34,6 @@ jobs:
           EC2_USER: ${{ secrets.EC2_USER || 'ec2-user' }}
           APP_DIR: ${{ secrets.APP_DIR || '/home/ec2-user/apps/resulam_dictionary' }}
           REPO_URL: https://github.com/${{ github.repository }}.git
-          S3_BUCKET: ${{ secrets.S3_BUCKET }}
-          S3_PREFIX: ${{ secrets.S3_PREFIX || 'backups' }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           SUPER_ADMIN_EMAIL: ${{ secrets.SUPER_ADMIN_EMAIL }}
