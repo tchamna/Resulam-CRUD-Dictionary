@@ -1,0 +1,978 @@
+const baseUrl = window.location.origin;
+const logEl = document.getElementById("log");
+const toastEl = document.getElementById("toast");
+const clafricaToggle = document.getElementById("clafrica-toggle");
+const spellcheckToggle = document.getElementById("spellcheck-toggle");
+const definitionTextarea = document.getElementById("definition-textarea");
+const languageInput = document.getElementById("language-input");
+const languageIdInput = document.getElementById("language-id");
+const languageDropdown = document.getElementById("language-dropdown");
+const definitionLanguageId = document.getElementById("definition-language-id");
+const reseedLanguageId = document.getElementById("reseed-language-id");
+const randomLanguageId = document.getElementById("random-language-id");
+const dictionaryTitle = document.getElementById("dictionary-title");
+const labelWord = document.getElementById("label-word");
+const labelDefinition = document.getElementById("label-definition");
+const labelExamples = document.getElementById("label-examples");
+const labelSynonyms = document.getElementById("label-synonyms");
+const labelTranslationFr = document.getElementById("label-translation-fr");
+const labelTranslationEn = document.getElementById("label-translation-en");
+const confirmModal = document.getElementById("confirm-modal");
+const confirmBody = document.getElementById("confirm-body");
+const confirmCancel = document.getElementById("confirm-cancel");
+const confirmAccept = document.getElementById("confirm-accept");
+const toolsToggle = document.getElementById("toggle-tools");
+const toolsPanel = document.getElementById("tools-panel");
+
+let languageCache = [];
+let currentUserRole = null;
+let confirmResolver = null;
+let lastSearchTerm = "";
+let lastSearchLanguageId = "";
+let lastListMode = "search";
+let lastRandomLanguageId = "";
+let currentLanguageKey = "";
+
+let clafricaMap = {};
+let clafricaKeys = [];
+let clafricaMaxKeyLen = 0;
+let clafricaPrefixes = new Set();
+
+const tokenStore = {
+  access: localStorage.getItem("access_token") || "",
+  refresh: localStorage.getItem("refresh_token") || "",
+};
+
+function setTokens(access, refresh) {
+  tokenStore.access = access || "";
+  tokenStore.refresh = refresh || "";
+  localStorage.setItem("access_token", tokenStore.access);
+  localStorage.setItem("refresh_token", tokenStore.refresh);
+  renderTokens();
+}
+
+function renderTokens() {}
+
+function showToast(message, anchor) {
+  if (!toastEl) return;
+  toastEl.textContent = message;
+  toastEl.classList.remove("is-hidden");
+  toastEl.classList.add("show");
+  if (anchor && anchor.getBoundingClientRect) {
+    const rect = anchor.getBoundingClientRect();
+    const top = rect.bottom + 8;
+    const left = rect.left;
+    toastEl.style.top = `${Math.min(top, window.innerHeight - 60)}px`;
+    toastEl.style.left = `${Math.min(left, window.innerWidth - 220)}px`;
+  } else {
+    toastEl.style.top = "";
+    toastEl.style.left = "";
+    toastEl.style.right = "24px";
+    toastEl.style.bottom = "24px";
+  }
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(() => {
+    toastEl.classList.remove("show");
+    toastEl.classList.add("is-hidden");
+  }, 1800);
+}
+
+function appendLog(title, payload) {
+  const stamp = new Date().toLocaleTimeString();
+  const line = `\n[${stamp}] ${title}\n${JSON.stringify(payload, null, 2)}`;
+  logEl.textContent = line + logEl.textContent;
+}
+
+async function apiRequest({ endpoint, method, body, auth }) {
+  const headers = { "Content-Type": "application/json" };
+  if (auth && tokenStore.access) {
+    headers.Authorization = `Bearer ${tokenStore.access}`;
+  }
+
+  const response = await fetch(baseUrl + endpoint, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  const text = await response.text();
+  let data;
+  try {
+    data = text ? JSON.parse(text) : { status: "OK" };
+  } catch {
+    data = { raw: text };
+  }
+
+  return { status: response.status, ok: response.ok, data };
+}
+
+async function loadCurrentUser() {
+  try {
+    const res = await apiRequest({ endpoint: "/users/me", method: "GET", auth: true });
+    if (res.ok && res.data && res.data.role) {
+      currentUserRole = res.data.role;
+    }
+  } catch (err) {
+    appendLog("Current user error", { message: err.message });
+  }
+}
+
+function isAdmin() {
+  return currentUserRole === "admin" || currentUserRole === "super_admin";
+}
+
+function openConfirm(message) {
+  if (!confirmModal || !confirmBody || !confirmAccept || !confirmCancel) {
+    return Promise.resolve(false);
+  }
+  confirmBody.textContent = message;
+  confirmModal.classList.remove("is-hidden");
+  return new Promise((resolve) => {
+    confirmResolver = resolve;
+  });
+}
+
+function closeConfirm(result) {
+  if (confirmModal) {
+    confirmModal.classList.add("is-hidden");
+  }
+  if (confirmResolver) {
+    confirmResolver(result);
+    confirmResolver = null;
+  }
+}
+
+if (confirmCancel) {
+  confirmCancel.addEventListener("click", () => closeConfirm(false));
+}
+
+if (confirmAccept) {
+  confirmAccept.addEventListener("click", () => closeConfirm(true));
+}
+
+if (confirmModal) {
+  confirmModal.addEventListener("click", (event) => {
+    if (event.target && event.target.classList.contains("modal-backdrop")) {
+      closeConfirm(false);
+    }
+  });
+}
+
+async function loadClafricaMap() {
+  try {
+    const res = await apiRequest({ endpoint: "/dictionary/clafrica-map", method: "GET" });
+    if (res.ok && res.data && typeof res.data === "object") {
+      clafricaMap = res.data;
+      clafricaKeys = Object.keys(clafricaMap).sort((a, b) => b.length - a.length);
+      clafricaMaxKeyLen = clafricaKeys.length ? clafricaKeys[0].length : 0;
+      clafricaPrefixes = new Set();
+      clafricaKeys.forEach((key) => {
+        for (let i = 1; i < key.length; i += 1) {
+          clafricaPrefixes.add(key.slice(0, i));
+        }
+      });
+    }
+  } catch (err) {
+    appendLog("Clafrica map error", { message: err.message });
+  }
+}
+
+async function loadLanguages() {
+  if (!languageInput || !languageDropdown) {
+    return;
+  }
+  try {
+    const res = await apiRequest({ endpoint: "/dictionary/languages", method: "GET" });
+    if (res.ok && Array.isArray(res.data)) {
+      languageCache = res.data;
+      renderLanguageDropdown(languageCache, "");
+      if (languageCache.length) {
+        const nufi = languageCache.find((row) => normalizeLanguageKey(row.name) === "nufi");
+        setLanguage(nufi || languageCache[0]);
+        await fetchRandomWords();
+      }
+    }
+  } catch (err) {
+    appendLog("Languages error", { message: err.message });
+  }
+}
+
+function renderLanguageDropdown(list, query) {
+  if (!languageDropdown) {
+    return;
+  }
+  languageDropdown.textContent = "";
+  list.forEach((row) => {
+    const item = document.createElement("div");
+    item.className = "dropdown-item";
+    item.textContent = row.name;
+    item.addEventListener("click", () => {
+      setLanguage(row);
+      closeLanguageDropdown();
+    });
+    if (isAdmin() && normalizeLanguageKey(row.name) !== "nufi") {
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "ghost small";
+      remove.textContent = "Delete";
+      remove.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        const ok = window.confirm(`Delete language "${row.name}" and its words?`);
+        if (!ok) return;
+        await deleteLanguage(row.id);
+      });
+      item.appendChild(remove);
+    }
+    languageDropdown.appendChild(item);
+  });
+  const exactMatch = query ? findLanguageMatch(query) : null;
+  if (!exactMatch) {
+    const create = document.createElement("div");
+    create.className = "dropdown-item";
+    create.textContent = "Add your language";
+    create.addEventListener("click", async () => {
+      const name = languageInput ? languageInput.value.trim() : "";
+      if (!name) {
+        return;
+      }
+      const ok = await openConfirm(`Create new language "${name}"?`);
+      if (!ok) {
+        if (languageInput) {
+          languageInput.focus();
+        }
+        return;
+      }
+      createLanguage(name);
+    });
+    languageDropdown.appendChild(create);
+  }
+  languageDropdown.classList.toggle("open", true);
+}
+
+function normalizeLanguageKey(value) {
+  return value.toLowerCase().replace(/'/g, "").replace(/\s+/g, "-");
+}
+
+function findLanguageMatch(value) {
+  const key = normalizeLanguageKey(value);
+  return languageCache.find((row) => row.slug === key || row.name.toLowerCase() === value.toLowerCase());
+}
+
+function getDictionaryLabels() {
+  if (currentLanguageKey === "nufi") {
+    return {
+      title: "Ŋwɑ̀'nǐpàhsì",
+      needsDefinition: "Pō yǎt sì pàhsì",
+      defined: "Pàhsì",
+      define: "Pàhsì",
+      edit: "Cōp pàhsì",
+      wordLabel: "Njâ'wū",
+      definitionLabel: "Pàhsì",
+      examplesLabel: "Mfóhnì",
+      synonymsLabel: "Fóhmbʉ̄ɑ̄",
+      translationFrLabel: "Fāhngə́ə́ mɑ̀ Flàŋsī",
+      translationEnLabel: "Fāhngə́ə́ mɑ̀ Nglǐsì",
+    };
+  }
+  return {
+    title: "Dictionary",
+    needsDefinition: "needs definition",
+    defined: "defined",
+    define: "Define",
+    edit: "Edit",
+    wordLabel: "Word",
+    definitionLabel: "Definitions",
+    examplesLabel: "Examples",
+    synonymsLabel: "Syn.",
+    translationFrLabel: "Traduction en Francais",
+    translationEnLabel: "Translation in English",
+  };
+}
+
+function updateDictionaryLabels() {
+  if (!dictionaryTitle) {
+    return;
+  }
+  const labels = getDictionaryLabels();
+  dictionaryTitle.textContent = labels.title;
+  if (labelWord) labelWord.textContent = labels.wordLabel;
+  if (labelDefinition) labelDefinition.textContent = labels.definitionLabel;
+  if (labelExamples) labelExamples.textContent = labels.examplesLabel;
+  if (labelSynonyms) labelSynonyms.textContent = labels.synonymsLabel;
+  if (labelTranslationFr) labelTranslationFr.textContent = labels.translationFrLabel;
+  if (labelTranslationEn) labelTranslationEn.textContent = labels.translationEnLabel;
+}
+
+function setLanguage(row) {
+  if (!languageInput || !languageIdInput) {
+    return;
+  }
+  languageInput.value = row.name;
+  languageIdInput.value = row.id;
+  currentLanguageKey = normalizeLanguageKey(row.name);
+  updateDictionaryLabels();
+  syncLanguageHiddenFields();
+  fetchRandomWords();
+}
+
+function closeLanguageDropdown() {
+  if (!languageDropdown) {
+    return;
+  }
+  languageDropdown.classList.remove("open");
+}
+
+async function createLanguage(name) {
+  try {
+    const res = await apiRequest({
+      endpoint: "/dictionary/languages",
+      method: "POST",
+      body: { name },
+      auth: true,
+    });
+    appendLog("POST /dictionary/languages", res.data);
+    if (res.ok) {
+      await loadLanguages();
+      const match = findLanguageMatch(name);
+      if (match) {
+        setLanguage(match);
+        closeLanguageDropdown();
+      }
+    }
+  } catch (err) {
+    appendLog("Create language failed", { message: err.message });
+  }
+}
+
+async function deleteLanguage(id) {
+  try {
+    const res = await apiRequest({
+      endpoint: `/dictionary/languages/${id}`,
+      method: "DELETE",
+      auth: true,
+    });
+    appendLog("DELETE /dictionary/languages", res.data);
+    if (res.ok) {
+      await loadLanguages();
+    }
+  } catch (err) {
+    appendLog("Delete language failed", { message: err.message });
+  }
+}
+
+async function fetchRandomWords() {
+  if (!languageIdInput || !languageIdInput.value) {
+    return;
+  }
+  lastListMode = "random";
+  lastRandomLanguageId = languageIdInput.value;
+  try {
+    const res = await apiRequest({
+      endpoint: `/dictionary/random?language_id=${languageIdInput.value}&limit=10`,
+      method: "GET",
+      auth: true,
+    });
+    if (res.ok) {
+      renderResult("dictionary-result", res);
+    }
+  } catch (err) {
+    appendLog("Random words error", { message: err.message });
+  }
+}
+
+function syncLanguageHiddenFields() {
+  if (!languageIdInput) {
+    return;
+  }
+  const value = languageIdInput.value;
+  if (definitionLanguageId) {
+    definitionLanguageId.value = value;
+  }
+  if (reseedLanguageId) {
+    reseedLanguageId.value = value;
+  }
+  if (randomLanguageId) {
+    randomLanguageId.value = value;
+  }
+}
+
+function applyClafricaToken(token, allowPartialAtEnd) {
+  if (!clafricaMaxKeyLen) {
+    return token;
+  }
+  let output = "";
+  let i = 0;
+  while (i < token.length) {
+    let matched = false;
+    const maxLen = Math.min(clafricaMaxKeyLen, token.length - i);
+    for (let len = maxLen; len > 0; len -= 1) {
+      const chunk = token.slice(i, i + len);
+      const replacement = clafricaMap[chunk];
+      if (replacement) {
+        if (allowPartialAtEnd && i + len === token.length && clafricaPrefixes.has(chunk)) {
+          break;
+        }
+        output += replacement;
+        i += len;
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      output += token[i];
+      i += 1;
+    }
+  }
+  return output;
+}
+
+function applyClafricaReplacement(event) {
+  if (!clafricaToggle || !clafricaToggle.checked) {
+    return;
+  }
+  if (!event || event.key !== " ") {
+    return;
+  }
+  const target = event.target;
+  if (!target || !target.dataset || target.dataset.clafrica !== "true") {
+    return;
+  }
+
+  const value = target.value;
+  const cursor = target.selectionStart;
+  const before = value.slice(0, cursor);
+  const after = value.slice(cursor);
+  const match = before.match(/(\S+)$/);
+  if (!match) {
+    return;
+  }
+  const token = match[1];
+  const replacement = applyClafricaToken(token, false);
+  if (!replacement || replacement === token) {
+    return;
+  }
+  const newBefore = before.slice(0, -token.length) + replacement + " ";
+  target.value = newBefore + after;
+  const newCursor = newBefore.length;
+  target.setSelectionRange(newCursor, newCursor);
+  event.preventDefault();
+}
+
+function applyClafricaOnInput(event) {
+  if (!clafricaToggle || !clafricaToggle.checked) {
+    return;
+  }
+  const target = event.target;
+  if (!target || !target.dataset || target.dataset.clafrica !== "true") {
+    return;
+  }
+  const value = target.value;
+  const cursor = target.selectionStart;
+  if (cursor === null || cursor === undefined) {
+    return;
+  }
+  const left = value.slice(0, cursor);
+  const right = value.slice(cursor);
+  const match = left.match(/(\S+)$/);
+  if (!match) {
+    return;
+  }
+  const token = match[1];
+  const replacement = applyClafricaToken(token, true);
+  if (!replacement || replacement === token) {
+    return;
+  }
+  const newLeft = left.slice(0, -token.length) + replacement;
+  target.value = newLeft + right;
+  const newCursor = newLeft.length;
+  target.setSelectionRange(newCursor, newCursor);
+}
+
+function resolveEndpoint(template, data) {
+  if (!template.includes(":id")) return template;
+  return template.replace(":id", data.id);
+}
+
+function collectFormData(form) {
+  const data = {};
+  new FormData(form).forEach((value, key) => {
+    if (value !== "") {
+      data[key] = value;
+    }
+  });
+  return data;
+}
+
+function renderResult(targetId, res) {
+  const el = document.getElementById(targetId);
+  if (!el) return;
+
+  if (!res.ok) {
+    el.textContent = `Error ${res.status}: ${JSON.stringify(res.data)}`;
+    return;
+  }
+
+  if (targetId === "dictionary-result" && Array.isArray(res.data)) {
+    const labels = getDictionaryLabels();
+    if (res.data.length === 0) {
+      el.textContent = "No words found. You can add it below.";
+      if (lastSearchTerm && lastSearchLanguageId) {
+        const form = document.getElementById("definition-form");
+        if (form) {
+          const idInput = form.querySelector('input[name="id"]');
+          const wordInput = form.querySelector('input[name="word"]');
+          const definitionInput = form.querySelector('textarea[name="definition"]');
+          const examplesInput = form.querySelector('textarea[name="examples"]');
+          const synonymsInput = form.querySelector('input[name="synonyms"]');
+          const translationFrInput = form.querySelector('textarea[name="translation_fr"]');
+          const translationEnInput = form.querySelector('textarea[name="translation_en"]');
+          const languageInput = form.querySelector('input[name="language_id"]');
+          if (idInput) idInput.value = "";
+          if (idInput) idInput.placeholder = "(new word)";
+          if (wordInput) wordInput.value = lastSearchTerm;
+          if (definitionInput) definitionInput.value = "";
+          if (examplesInput) examplesInput.value = "";
+          if (synonymsInput) synonymsInput.value = "";
+          if (translationFrInput) translationFrInput.value = "";
+          if (translationEnInput) translationEnInput.value = "";
+          if (languageInput) languageInput.value = lastSearchLanguageId;
+          form.scrollIntoView({ behavior: "smooth", block: "start" });
+          if (definitionInput) {
+            definitionInput.focus();
+          }
+        }
+      }
+      return;
+    }
+
+    el.textContent = "";
+    const list = document.createElement("div");
+    list.className = "item-list";
+    res.data.forEach((entry) => {
+      const row = document.createElement("div");
+      row.className = "item-row";
+      row.dataset.entryId = entry.id;
+
+      const meta = entry.definition ? labels.defined : labels.needsDefinition;
+      const by = entry.updated_by_email ? `, by ${entry.updated_by_email}` : "";
+      const label = document.createElement("span");
+      label.textContent = `#${entry.id} ${entry.word} (${meta}${by})`;
+
+      const useButton = document.createElement("button");
+      useButton.type = "button";
+      useButton.className = "ghost small";
+      useButton.textContent = entry.definition ? labels.edit : labels.define;
+      if (entry.definition && entry.definition.trim()) {
+        const fields = [
+          entry.definition,
+          entry.examples,
+          entry.synonyms,
+          entry.translation_fr,
+          entry.translation_en,
+        ];
+        const filled = fields.filter((value) => value && String(value).trim()).length;
+        const total = fields.length;
+        const ratio = total ? filled / total : 0;
+        const lightness = Math.round(78 - ratio * 36);
+        useButton.classList.add("defined-btn");
+        useButton.style.background = `hsl(140, 45%, ${lightness}%)`;
+      }
+      useButton.addEventListener("click", () => {
+        const form = document.getElementById("definition-form");
+        if (!form) return;
+        const idInput = form.querySelector('input[name="id"]');
+        const wordInput = form.querySelector('input[name="word"]');
+        const definitionInput = form.querySelector('textarea[name="definition"]');
+        const examplesInput = form.querySelector('textarea[name="examples"]');
+        const synonymsInput = form.querySelector('input[name="synonyms"]');
+        const translationFrInput = form.querySelector('textarea[name="translation_fr"]');
+        const translationEnInput = form.querySelector('textarea[name="translation_en"]');
+        const languageInput = form.querySelector('input[name="language_id"]');
+        if (idInput) idInput.value = entry.id;
+        if (idInput) idInput.placeholder = "";
+        if (wordInput) wordInput.value = entry.word;
+        if (definitionInput) definitionInput.value = entry.definition || "";
+        if (examplesInput) examplesInput.value = entry.examples || "";
+        if (synonymsInput) synonymsInput.value = entry.synonyms || "";
+        if (translationFrInput) translationFrInput.value = entry.translation_fr || "";
+        if (translationEnInput) translationEnInput.value = entry.translation_en || "";
+        if (languageInput) languageInput.value = entry.language_id;
+        form.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+
+      row.appendChild(label);
+      row.appendChild(useButton);
+      list.appendChild(row);
+    });
+    el.appendChild(list);
+    return;
+  }
+
+  if (targetId === "definition-result" && res.ok) {
+    el.textContent = "Definition saved.";
+    return;
+  }
+
+  if (targetId === "reseed-result" && res.ok) {
+    el.textContent = `Reseeded ${res.data.count} words.`;
+    return;
+  }
+
+  if (targetId === "users-result" && Array.isArray(res.data)) {
+    if (res.data.length === 0) {
+      el.textContent = "No users yet.";
+      return;
+    }
+
+    el.textContent = "";
+    const list = document.createElement("div");
+    list.className = "item-list";
+    res.data.forEach((user) => {
+      const row = document.createElement("div");
+      row.className = "item-row";
+
+      const label = document.createElement("span");
+      const count = typeof user.defined_count === "number" ? user.defined_count : 0;
+      label.textContent = `#${user.id} ${user.email} (${user.role}, ${count} defined)`;
+
+      const useButton = document.createElement("button");
+      useButton.type = "button";
+      useButton.className = "ghost small";
+      useButton.textContent = "Use email";
+      useButton.addEventListener("click", () => {
+        const emailInput = document.querySelector(
+          'form[data-endpoint="/users/role"] input[name="email"]'
+        );
+        if (emailInput) {
+          emailInput.value = user.email;
+          emailInput.focus();
+        }
+      });
+
+      row.appendChild(label);
+      row.appendChild(useButton);
+      list.appendChild(row);
+    });
+    el.appendChild(list);
+    return;
+  }
+
+  el.textContent = JSON.stringify(res.data, null, 2);
+}
+
+document.querySelectorAll("form").forEach((form) => {
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    let method = form.dataset.method || "GET";
+    let endpointTemplate = form.dataset.endpoint || "";
+    const needsAuth = form.dataset.auth === "true";
+    const expectsToken = form.dataset.tokenOut === "true";
+    const usesRefresh = form.dataset.refresh === "true";
+    const resultTarget = form.dataset.resultTarget || "";
+
+    const data = collectFormData(form);
+    if (typeof data.search === "string") {
+      data.search = data.search.trim();
+    }
+    if (typeof data.id === "string") {
+      const cleanedId = data.id.trim();
+      if (!/^\d+$/.test(cleanedId)) {
+        delete data.id;
+      } else {
+        data.id = cleanedId;
+      }
+    }
+    if (endpointTemplate === "/dictionary" && method === "GET") {
+      if (!data.language_id) {
+        const guess = languageInput ? languageInput.value.trim() : "";
+        const match = guess ? findLanguageMatch(guess) : null;
+        if (match) {
+          data.language_id = match.id;
+          if (languageIdInput) {
+            languageIdInput.value = match.id;
+          }
+          syncLanguageHiddenFields();
+        }
+      }
+      if (!data.language_id) {
+        const resultEl = document.getElementById("dictionary-result");
+        if (resultEl) {
+          resultEl.textContent = "Select a language before fetching words.";
+        }
+        return;
+      }
+    }
+    if (endpointTemplate === "/dictionary" && method === "GET") {
+      lastSearchTerm = data.search || "";
+      lastSearchLanguageId = data.language_id || "";
+      lastListMode = "search";
+    }
+    if (endpointTemplate === "/dictionary/random" && method === "GET") {
+      lastListMode = "random";
+      lastRandomLanguageId = data.language_id || "";
+    }
+    if (usesRefresh && !data.refresh_token && tokenStore.refresh) {
+      data.refresh_token = tokenStore.refresh;
+    }
+    if (form.id === "definition-form") {
+      if (data.id) {
+        endpointTemplate = "/dictionary/:id";
+        method = "PUT";
+      } else {
+        endpointTemplate = "/dictionary";
+        method = "POST";
+      }
+    }
+
+    const endpoint = resolveEndpoint(endpointTemplate, data);
+    if (endpointTemplate.includes(":id")) {
+      delete data.id;
+      if (endpointTemplate === "/dictionary/:id") {
+        delete data.word;
+      }
+    }
+
+    let endpointWithQuery = endpoint;
+    const params = new URLSearchParams();
+    if ((method === "GET" || method === "DELETE") && Object.keys(data).length) {
+      Object.entries(data).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") {
+          params.append(key, value);
+        }
+      });
+    }
+    if (method === "PUT" && data.language_id) {
+      params.append("language_id", data.language_id);
+      delete data.language_id;
+    }
+    const qs = params.toString();
+    if (qs) {
+      endpointWithQuery = `${endpoint}?${qs}`;
+    }
+
+    const body = method === "GET" || method === "DELETE" ? null : data;
+
+    try {
+      const res = await apiRequest({ endpoint: endpointWithQuery, method, body, auth: needsAuth });
+      appendLog(`${method} ${endpointWithQuery} -> ${res.status}`, res.data);
+      if (endpointTemplate === "/dictionary/:id" && method === "PUT" && res.ok) {
+        showToast("Definition saved", event.submitter);
+        await replaceDefinedEntry(res.data.id);
+      }
+      if (endpoint === "/auth/register" && res.ok) {
+        const loginForm = document.getElementById("login-form");
+        if (loginForm) {
+          const emailInput = loginForm.querySelector('input[name="email"]');
+          if (emailInput && data.email) {
+            emailInput.value = data.email;
+          }
+          const loginTab = document.querySelector('.auth-tab[data-auth-tab="login"]');
+          if (loginTab) {
+            loginTab.click();
+          }
+          loginForm.scrollIntoView({ behavior: "smooth", block: "start" });
+          const passwordInput = loginForm.querySelector('input[name="password"]');
+          if (passwordInput) {
+            passwordInput.focus();
+          }
+        }
+      }
+      if (resultTarget) {
+        renderResult(resultTarget, res);
+      }
+      if (expectsToken && res.ok && res.data.access_token) {
+        setTokens(res.data.access_token, res.data.refresh_token || "");
+        if (endpoint === "/auth/login") {
+          const dictionaryTab = document.querySelector('.menu-btn[data-panel="panel-dictionary"]');
+          const dictionaryPanel = document.getElementById("panel-dictionary");
+          if (dictionaryTab && dictionaryPanel) {
+            dictionaryTab.click();
+            dictionaryPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+          }
+        }
+      }
+    } catch (err) {
+      appendLog(`${method} ${endpoint} failed`, { message: err.message });
+    }
+  });
+});
+
+const dictionaryForm = document.querySelector('form[data-endpoint="/dictionary"][data-method="GET"]');
+if (dictionaryForm) {
+  const statusSelect = dictionaryForm.querySelector('select[name="status"]');
+  if (statusSelect) {
+    statusSelect.addEventListener("change", () => {
+      if (typeof dictionaryForm.requestSubmit === "function") {
+        dictionaryForm.requestSubmit();
+      } else {
+        dictionaryForm.dispatchEvent(new Event("submit", { cancelable: true }));
+      }
+      const results = document.getElementById("dictionary-result");
+      if (results) {
+        results.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+  }
+}
+
+async function replaceDefinedEntry(entryId) {
+  if (lastListMode !== "random") {
+    return;
+  }
+  const list = document.querySelector("#dictionary-result .item-list");
+  if (list) {
+    const row = list.querySelector(`[data-entry-id="${entryId}"]`);
+    if (row) {
+      row.remove();
+    }
+  }
+  if (!lastRandomLanguageId) {
+    return;
+  }
+  try {
+    const res = await apiRequest({
+      endpoint: `/dictionary/random?language_id=${lastRandomLanguageId}&limit=1`,
+      method: "GET",
+      auth: true,
+    });
+    if (res.ok && Array.isArray(res.data) && res.data.length) {
+      const entry = res.data[0];
+      let list = document.querySelector("#dictionary-result .item-list");
+      if (!list) {
+        const container = document.getElementById("dictionary-result");
+        if (!container) return;
+        container.textContent = "";
+        list = document.createElement("div");
+        list.className = "item-list";
+        container.appendChild(list);
+      }
+      const row = document.createElement("div");
+      row.className = "item-row";
+      row.dataset.entryId = entry.id;
+
+      const meta = entry.definition ? "defined" : "needs definition";
+      const by = entry.updated_by_email ? `, by ${entry.updated_by_email}` : "";
+      const label = document.createElement("span");
+      label.textContent = `#${entry.id} ${entry.word} (${meta}${by})`;
+
+      const useButton = document.createElement("button");
+      useButton.type = "button";
+      useButton.className = "ghost small";
+      useButton.textContent = entry.definition ? "Edit" : "Define";
+      useButton.addEventListener("click", () => {
+        const form = document.getElementById("definition-form");
+        if (!form) return;
+        const idInput = form.querySelector('input[name="id"]');
+        const wordInput = form.querySelector('input[name="word"]');
+        const definitionInput = form.querySelector('textarea[name="definition"]');
+        const languageInput = form.querySelector('input[name="language_id"]');
+        if (idInput) idInput.value = entry.id;
+        if (idInput) idInput.placeholder = "";
+        if (wordInput) wordInput.value = entry.word;
+        if (definitionInput) definitionInput.value = entry.definition || "";
+        if (languageInput) languageInput.value = entry.language_id;
+        form.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+
+      row.appendChild(label);
+      row.appendChild(useButton);
+      list.appendChild(row);
+    }
+  } catch (err) {
+    appendLog("Random replace failed", { message: err.message });
+  }
+}
+
+document.querySelectorAll(".menu-btn").forEach((button) => {
+  button.addEventListener("click", () => {
+    const target = button.dataset.panel;
+    document.querySelectorAll(".menu-btn").forEach((btn) => {
+      btn.classList.toggle("active", btn === button);
+    });
+    document.querySelectorAll(".panel").forEach((panel) => {
+      panel.classList.toggle("panel-active", panel.id === target);
+    });
+  });
+});
+
+document.querySelectorAll(".sub-menu-btn").forEach((button) => {
+  button.addEventListener("click", () => {
+    const view = button.dataset.authView;
+    document.querySelectorAll(".sub-menu-btn").forEach((btn) => {
+      btn.classList.toggle("active", btn === button);
+    });
+    const basic = document.querySelector(".auth-basic");
+    const advanced = document.querySelector(".auth-advanced");
+    if (!basic || !advanced) return;
+    basic.classList.toggle("is-hidden", view !== "basic");
+    advanced.classList.toggle("is-hidden", view !== "advanced");
+  });
+});
+
+document.querySelectorAll(".auth-tab").forEach((button) => {
+  button.addEventListener("click", () => {
+    const target = button.dataset.authTab;
+    document.querySelectorAll(".auth-tab").forEach((btn) => {
+      btn.classList.toggle("active", btn === button);
+    });
+    document.querySelectorAll(".auth-basic form").forEach((form) => {
+      form.classList.toggle("is-hidden", form.dataset.authTab !== target);
+    });
+  });
+});
+
+if (toolsToggle && toolsPanel) {
+  toolsToggle.addEventListener("click", () => {
+    toolsPanel.classList.toggle("is-hidden");
+  });
+}
+
+document.querySelectorAll("[data-clafrica=\"true\"]").forEach((input) => {
+  input.addEventListener("keydown", applyClafricaReplacement);
+  input.addEventListener("input", applyClafricaOnInput);
+});
+
+if (languageInput) {
+  languageInput.addEventListener("focus", () => {
+    renderLanguageDropdown(languageCache, languageInput.value.trim());
+  });
+  languageInput.addEventListener("input", () => {
+    const query = languageInput.value.trim();
+    const filtered = query
+      ? languageCache.filter((row) => row.name.toLowerCase().includes(query.toLowerCase()))
+      : languageCache;
+    renderLanguageDropdown(filtered, query);
+    const match = findLanguageMatch(query);
+    if (match) {
+      setLanguage(match);
+    }
+  });
+  document.addEventListener("click", (event) => {
+    if (!languageDropdown || !languageInput) {
+      return;
+    }
+    if (languageDropdown.contains(event.target) || languageInput.contains(event.target)) {
+      return;
+    }
+    closeLanguageDropdown();
+  });
+}
+
+if (spellcheckToggle && definitionTextarea) {
+  spellcheckToggle.addEventListener("change", () => {
+    definitionTextarea.spellcheck = spellcheckToggle.checked;
+  });
+}
+
+const activeAuthTab = document.querySelector(".auth-tab.active");
+if (activeAuthTab) {
+  const target = activeAuthTab.dataset.authTab;
+  document.querySelectorAll(".auth-basic form").forEach((form) => {
+    form.classList.toggle("is-hidden", form.dataset.authTab !== target);
+  });
+}
+
+renderTokens();
+loadCurrentUser();
+loadClafricaMap();
+loadLanguages();

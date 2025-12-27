@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Resulam Dictionaries</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Charis+SIL:wght@400;700&family=Space+Grotesk:wght@400;500;600;700&family=Unbounded:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="glow"></div>
+  <div class="grid"></div>
+  <div class="page">
+  <header class="hero">
+    <div class="hero-left">
+      <div class="kicker">FastAPI Playground</div>
+      <div class="title-row">
+        <h1>Resulam Dictionaries</h1>
+      </div>
+      <p class="sub">Contribute definitions, review existing entries, and manage users.</p>
+    </div>
+    <div class="hero-right">
+      <div class="logo-card">
+        <img class="logo-hero" src="/static/resulam_logo_egg.png" alt="Resulam logo">
+      </div>
+    </div>
+  </header>
+
+  <nav class="menu">
+    <button class="menu-btn active" data-panel="panel-auth">Auth</button>
+    <button class="menu-btn" data-panel="panel-dictionary">Dictionary</button>
+    <button class="menu-btn" data-panel="panel-users">Users</button>
+    <button class="menu-btn" data-panel="panel-log">Log</button>
+  </nav>
+
+  <main class="panels">
+    <section id="panel-auth" class="panel panel-active">
+      <h2>Auth</h2>
+      <div class="sub-menu">
+        <button class="sub-menu-btn active" data-auth-view="basic">Basic</button>
+        <button class="sub-menu-btn" data-auth-view="advanced">Advanced</button>
+      </div>
+      <div class="forms">
+        <div class="auth-basic">
+          <div class="auth-tabs">
+            <button class="auth-tab active" data-auth-tab="register" type="button">Register</button>
+            <button class="auth-tab" data-auth-tab="login" type="button">Login</button>
+          </div>
+          <form data-endpoint="/auth/register" data-method="POST" data-auth-tab="register">
+            <label>Email<input name="email" type="email" required></label>
+            <label>Password<input name="password" type="password" required></label>
+            <button type="submit">Create account</button>
+          </form>
+          <form id="login-form" data-endpoint="/auth/login" data-method="POST" data-token-out="true" data-auth-tab="login">
+            <label>Email<input name="email" type="email" required></label>
+            <label>Password<input name="password" type="password" required></label>
+            <button type="submit">Login</button>
+          </form>
+        </div>
+        <div class="auth-advanced is-hidden">
+          <form data-endpoint="/auth/refresh" data-method="POST" data-refresh="true" data-token-out="true">
+            <h3>Refresh tokens</h3>
+            <p class="hint">Uses the saved refresh token if you leave the field blank.</p>
+            <label>Refresh token<input name="refresh_token" type="text" placeholder="auto" /></label>
+            <button type="submit">Refresh</button>
+          </form>
+          <form data-endpoint="/auth/password-reset/request" data-method="POST">
+            <h3>Password reset request</h3>
+            <p class="hint">Demo only: generates a reset token on the server, not emailed.</p>
+            <label>Email<input name="email" type="email" required></label>
+            <button type="submit">Generate reset token</button>
+          </form>
+          <form data-endpoint="/auth/password-reset/confirm" data-method="POST">
+            <h3>Password reset confirm</h3>
+            <p class="hint">Use the reset token from the server response log.</p>
+            <label>Token<input name="token" type="text" required></label>
+            <label>New password<input name="new_password" type="password" required></label>
+            <button type="submit">Update password</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <section id="panel-dictionary" class="panel">
+      <div class="panel-head">
+        <h2 id="dictionary-title">Dictionary</h2>
+        <div class="tools-wrap">
+          <button id="toggle-tools" class="ghost small" type="button">Tools</button>
+          <div id="tools-panel" class="toggle-panel is-hidden">
+            <label><input id="clafrica-toggle" type="checkbox" checked> Enable Clafrica input</label>
+            <label><input id="spellcheck-toggle" type="checkbox"> Enable spellcheck</label>
+          </div>
+        </div>
+      </div>
+      <div class="forms">
+        <form data-endpoint="/dictionary" data-method="GET" data-auth="true" data-result-target="dictionary-result">
+          <!-- <h3>Word list</h3> -->
+          <p class="hint">Search and pick a word to define or update.</p>
+          <div class="language-picker">
+            <label>Language
+              <input id="language-input" type="text" placeholder="Search or add language" />
+            </label>
+            <input id="language-id" type="hidden" name="language_id" />
+            <div id="language-dropdown" class="dropdown"></div>
+          </div>
+          <label>Search (word contains)<input name="search" type="text" data-clafrica="true" /></label>
+          <label>Status
+            <select name="status">
+              <option value="all" selected>All words</option>
+              <option value="undefined">Needs definition</option>
+              <option value="defined">Defined</option>
+            </select>
+          </label>
+          <div class="inline">
+            <label>Limit<input name="limit" type="number" value="50" min="1" max="200" /></label>
+            <label>Offset<input name="offset" type="number" value="0" min="0" /></label>
+          </div>
+          <button type="submit">Fetch words</button>
+        </form>
+        <form data-endpoint="/dictionary/random" data-method="GET" data-auth="true" data-result-target="dictionary-result">
+          <h3>Suggestions</h3>
+          <p class="hint">Random undefined words to define right away.</p>
+          <input id="random-language-id" type="hidden" name="language_id" />
+          <label>Count<input name="limit" type="number" value="10" min="1" max="50" /></label>
+          <button type="submit" class="ghost">Show 10 random words</button>
+        </form>
+        <div id="dictionary-result" class="result"></div>
+        <form id="definition-form" data-endpoint="/dictionary/:id" data-method="PUT" data-auth="true" data-result-target="definition-result">
+          <input id="definition-language-id" type="hidden" name="language_id" />
+          <input id="definition-id" type="hidden" name="id" />
+          <label><span id="label-word">Word</span><input name="word" type="text" data-clafrica="true"></label>
+          <label><span id="label-definition">Definitions</span><textarea id="definition-textarea" name="definition" rows="4" required data-clafrica="true" spellcheck="false"></textarea></label>
+          <label><span id="label-examples">Examples</span><textarea name="examples" rows="3" data-clafrica="true"></textarea></label>
+          <label><span id="label-synonyms">Syn.</span><input name="synonyms" type="text" data-clafrica="true"></label>
+          <label><span id="label-translation-fr">Traduction en Francais</span><textarea name="translation_fr" rows="2" data-clafrica="true"></textarea></label>
+          <label><span id="label-translation-en">Translation in English</span><textarea name="translation_en" rows="2" data-clafrica="true"></textarea></label>
+          <button type="submit">Save definition</button>
+        </form>
+        <div id="definition-result" class="result"></div>
+        <form data-endpoint="/dictionary/reseed" data-method="POST" data-auth="true" data-result-target="reseed-result">
+          <h3>Reseed word list (Admin)</h3>
+          <p class="hint">Clears existing words and reloads from the word list file.</p>
+          <input id="reseed-language-id" type="hidden" name="language_id" />
+          <input type="hidden" name="confirm" value="true" />
+          <button type="submit" class="ghost">Reseed words</button>
+        </form>
+        <div id="reseed-result" class="result"></div>
+      </div>
+    </section>
+
+    <section id="panel-users" class="panel">
+      <h2>Users (Admin)</h2>
+      <div class="forms">
+        <form data-endpoint="/users" data-method="GET" data-auth="true" data-result-target="users-result">
+          <h3>List users</h3>
+          <p class="hint">Requires an admin account.</p>
+          <button type="submit">Fetch users</button>
+        </form>
+        <div id="users-result" class="result"></div>
+        <form data-endpoint="/users/role" data-method="PUT" data-auth="true" data-result-target="role-result">
+          <h3>Set role</h3>
+          <p class="hint">If no admins exist, any logged-in user can set the first admin.</p>
+          <label>Email<input name="email" type="email" required></label>
+          <label>Role
+            <select name="role" required>
+              <option value="user">user</option>
+              <option value="admin">admin</option>
+            </select>
+          </label>
+          <button type="submit">Update role</button>
+        </form>
+        <div id="role-result" class="result"></div>
+      </div>
+    </section>
+
+    <section id="panel-log" class="panel log-panel">
+      <h2>Response Log</h2>
+      <div id="log" class="log"></div>
+    </section>
+  </main>
+  </div>
+
+  <div id="toast" class="toast is-hidden" role="status" aria-live="polite"></div>
+  <div id="confirm-modal" class="modal is-hidden" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+    <div class="modal-backdrop"></div>
+    <div class="modal-card">
+      <div class="modal-title" id="confirm-title">Create language</div>
+      <div class="modal-body" id="confirm-body"></div>
+      <div class="modal-actions">
+        <button id="confirm-cancel" type="button" class="ghost">Edit</button>
+        <button id="confirm-accept" type="button">Create</button>
+      </div>
+    </div>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>
