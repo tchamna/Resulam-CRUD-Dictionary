@@ -111,22 +111,8 @@ jobs:
           set +a
           COMPOSE_DATABASE_URL="$DATABASE_URL"
           if [ -n "${DATABASE_URL:-}" ]; then
-            COMPOSE_DATABASE_URL="$(python - <<'PY'
-import os
-import urllib.parse as up
-url = os.environ.get("DATABASE_URL", "")
-if not url:
-    print("")
-    raise SystemExit(0)
-parsed = up.urlparse(url)
-host = parsed.hostname
-if host in ("localhost", "127.0.0.1"):
-    new_netloc = parsed.netloc.replace(host, "db", 1)
-    print(up.urlunparse((parsed.scheme, new_netloc, parsed.path, parsed.params, parsed.query, parsed.fragment)))
-else:
-    print(url)
-PY
-)"
+            COMPOSE_DATABASE_URL="${COMPOSE_DATABASE_URL/localhost/db}"
+            COMPOSE_DATABASE_URL="${COMPOSE_DATABASE_URL/127.0.0.1/db}"
           fi
           chmod +x scripts/backup_to_s3.sh scripts/backup_walg.sh scripts/deploy/setup_backup_cron.sh scripts/deploy/setup_walg_backup_cron.sh || true
           if ! command -v docker-compose >/dev/null 2>&1 || ! docker-compose --version 2>/dev/null | grep -q 'version 1\.'; then
