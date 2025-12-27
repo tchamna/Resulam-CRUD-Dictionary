@@ -109,13 +109,32 @@ jobs:
           set -a
           . api_demo/.env
           set +a
+          COMPOSE_DATABASE_URL="$DATABASE_URL"
+          if [ -n "${DATABASE_URL:-}" ]; then
+            COMPOSE_DATABASE_URL="$(python - <<'PY'
+import os
+import urllib.parse as up
+url = os.environ.get("DATABASE_URL", "")
+if not url:
+    print("")
+    raise SystemExit(0)
+parsed = up.urlparse(url)
+host = parsed.hostname
+if host in ("localhost", "127.0.0.1"):
+    new_netloc = parsed.netloc.replace(host, "db", 1)
+    print(up.urlunparse((parsed.scheme, new_netloc, parsed.path, parsed.params, parsed.query, parsed.fragment)))
+else:
+    print(url)
+PY
+)"
+          fi
           chmod +x scripts/backup_to_s3.sh scripts/backup_walg.sh scripts/deploy/setup_backup_cron.sh scripts/deploy/setup_walg_backup_cron.sh || true
           if ! command -v docker-compose >/dev/null 2>&1 || ! docker-compose --version 2>/dev/null | grep -q 'version 1\.'; then
             sudo curl -L https://github.com/docker/compose/releases/download/1.29.2/docker-compose-Linux-x86_64 -o /usr/local/bin/docker-compose
             sudo chmod +x /usr/local/bin/docker-compose
           fi
           if command -v docker-compose >/dev/null 2>&1; then
-            docker-compose -f api_demo/docker-compose.yml up -d --build db
+            DATABASE_URL="$COMPOSE_DATABASE_URL" docker-compose -f api_demo/docker-compose.yml up -d --build db
             db_ready=false
             for i in $(seq 1 60); do
               if docker-compose -f api_demo/docker-compose.yml exec -T db pg_isready -U postgres >/dev/null 2>&1; then
@@ -129,15 +148,15 @@ jobs:
               docker-compose -f api_demo/docker-compose.yml logs db --tail 200
               exit 1
             fi
-            docker-compose -f api_demo/docker-compose.yml up -d --build web
+            DATABASE_URL="$COMPOSE_DATABASE_URL" docker-compose -f api_demo/docker-compose.yml up -d --build web
             for i in $(seq 1 5); do
-              if docker-compose -f api_demo/docker-compose.yml exec -T web alembic upgrade head; then
+              if DATABASE_URL="$COMPOSE_DATABASE_URL" docker-compose -f api_demo/docker-compose.yml exec -T web alembic upgrade head; then
                 break
               fi
               sleep 5
             done
           elif docker compose version >/dev/null 2>&1; then
-            docker compose -f api_demo/docker-compose.yml up -d --build db
+            DATABASE_URL="$COMPOSE_DATABASE_URL" docker compose -f api_demo/docker-compose.yml up -d --build db
             db_ready=false
             for i in $(seq 1 60); do
               if docker compose -f api_demo/docker-compose.yml exec -T db pg_isready -U postgres >/dev/null 2>&1; then
@@ -151,9 +170,9 @@ jobs:
               docker compose -f api_demo/docker-compose.yml logs db --tail 200
               exit 1
             fi
-            docker compose -f api_demo/docker-compose.yml up -d --build web
+            DATABASE_URL="$COMPOSE_DATABASE_URL" docker compose -f api_demo/docker-compose.yml up -d --build web
             for i in $(seq 1 5); do
-              if docker compose -f api_demo/docker-compose.yml exec -T web alembic upgrade head; then
+              if DATABASE_URL="$COMPOSE_DATABASE_URL" docker compose -f api_demo/docker-compose.yml exec -T web alembic upgrade head; then
                 break
               fi
               sleep 5
