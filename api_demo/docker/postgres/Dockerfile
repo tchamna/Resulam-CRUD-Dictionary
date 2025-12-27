@@ -10,6 +10,6 @@ RUN apt-get update \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
-COPY archive_wal.sh /usr/local/bin/archive_wal.sh
-COPY restore_wal.sh /usr/local/bin/restore_wal.sh
+COPY docker/postgres/archive_wal.sh /usr/local/bin/archive_wal.sh
+COPY docker/postgres/restore_wal.sh /usr/local/bin/restore_wal.sh
 RUN chmod +x /usr/local/bin/archive_wal.sh /usr/local/bin/restore_wal.sh
