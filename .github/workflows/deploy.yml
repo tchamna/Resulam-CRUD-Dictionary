@@ -59,6 +59,31 @@ jobs:
           CRON_SCHEDULE: ${{ secrets.BACKUP_CRON || vars.BACKUP_CRON || '*/5 * * * *' }}
         run: |
           set -euo pipefail
+          env_file="$(mktemp)"
+          cat > "$env_file" <<EOF
+          DATABASE_URL=$DATABASE_URL
+          JWT_SECRET=$JWT_SECRET
+          SUPER_ADMIN_EMAIL=$SUPER_ADMIN_EMAIL
+          SUPER_ADMIN_PASSWORD=$SUPER_ADMIN_PASSWORD
+          WORD_LIST_PATH=$WORD_LIST_PATH
+          APP_BASE_URL=$APP_BASE_URL
+          SMTP_HOST=$SMTP_HOST
+          SMTP_PORT=$SMTP_PORT
+          SMTP_USER=$SMTP_USER
+          SMTP_PASSWORD=$SMTP_PASSWORD
+          SMTP_FROM=$SMTP_FROM
+          SMTP_USE_TLS=$SMTP_USE_TLS
+          GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID
+          GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET
+          GOOGLE_REDIRECT_URI=$GOOGLE_REDIRECT_URI
+          AWS_REGION=$AWS_REGION
+          AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+          AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+          S3_BUCKET=$S3_BUCKET
+          S3_PREFIX=$S3_PREFIX
+          WALG_S3_PREFIX=$WALG_S3_PREFIX
+          WALG_COMPRESSION_METHOD=$WALG_COMPRESSION_METHOD
+          EOF
           ssh -i ~/.ssh/ec2-key.pem -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ServerAliveCountMax=10 "$EC2_USER@$EC2_HOST" "set -euo pipefail; \
             sudo yum -y install docker git awscli postgresql15 cronie || true; \
             sudo service docker start || sudo systemctl start docker; \
@@ -72,32 +97,11 @@ jobs:
             git fetch origin main; \
             git reset --hard origin/main; \
             git clean -fd -e .env || true; \
-            cd api_demo; \
-            printf '%s\n' \
-              "DATABASE_URL=$DATABASE_URL" \
-              "JWT_SECRET=$JWT_SECRET" \
-              "SUPER_ADMIN_EMAIL=$SUPER_ADMIN_EMAIL" \
-              "SUPER_ADMIN_PASSWORD=$SUPER_ADMIN_PASSWORD" \
-              "WORD_LIST_PATH=$WORD_LIST_PATH" \
-              "APP_BASE_URL=$APP_BASE_URL" \
-              "SMTP_HOST=$SMTP_HOST" \
-              "SMTP_PORT=$SMTP_PORT" \
-              "SMTP_USER=$SMTP_USER" \
-              "SMTP_PASSWORD=$SMTP_PASSWORD" \
-              "SMTP_FROM=$SMTP_FROM" \
-              "SMTP_USE_TLS=$SMTP_USE_TLS" \
-              "GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID" \
-              "GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET" \
-              "GOOGLE_REDIRECT_URI=$GOOGLE_REDIRECT_URI" \
-              "AWS_REGION=$AWS_REGION" \
-              "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" \
-              "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" \
-              "S3_BUCKET=$S3_BUCKET" \
-              "S3_PREFIX=$S3_PREFIX" \
-              "WALG_S3_PREFIX=$WALG_S3_PREFIX" \
-              "WALG_COMPRESSION_METHOD=$WALG_COMPRESSION_METHOD" \
-              > .env; \
-            cd ..; \
+            cd api_demo"
+          scp -i ~/.ssh/ec2-key.pem -o StrictHostKeyChecking=no "$env_file" "$EC2_USER@$EC2_HOST:$APP_DIR/api_demo/.env"
+          rm -f "$env_file"
+          ssh -i ~/.ssh/ec2-key.pem -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ServerAliveCountMax=10 "$EC2_USER@$EC2_HOST" "set -euo pipefail; \
+            cd '$APP_DIR'; \
             chmod +x scripts/backup_to_s3.sh scripts/backup_walg.sh scripts/deploy/setup_backup_cron.sh scripts/deploy/setup_walg_backup_cron.sh || true; \
             if ! command -v docker-compose >/dev/null 2>&1 || ! docker-compose --version 2>/dev/null | grep -q 'version 1\\.'; then \
               sudo curl -L https://github.com/docker/compose/releases/download/1.29.2/docker-compose-Linux-x86_64 -o /usr/local/bin/docker-compose; \
