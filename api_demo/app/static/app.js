@@ -26,6 +26,7 @@ const toolsPanel = document.getElementById("tools-panel");
 
 let languageCache = [];
 let currentUserRole = null;
+let currentUserEmail = null;
 let confirmResolver = null;
 let lastSearchTerm = "";
 let lastSearchLanguageId = "";
@@ -111,6 +112,7 @@ async function loadCurrentUser() {
     const res = await apiRequest({ endpoint: "/users/me", method: "GET", auth: true });
     if (res.ok && res.data && res.data.role) {
       currentUserRole = res.data.role;
+      currentUserEmail = res.data.email || null;
       return res.data;
     }
   } catch (err) {
@@ -121,6 +123,10 @@ async function loadCurrentUser() {
 
 function isAdmin() {
   return currentUserRole === "admin" || currentUserRole === "super_admin";
+}
+
+function isSuperAdmin() {
+  return currentUserRole === "super_admin";
 }
 
 function openConfirm(message) {
@@ -729,6 +735,35 @@ function renderResult(targetId, res) {
           }
         });
         row.appendChild(verifyButton);
+      }
+      if (isSuperAdmin() && user.role === "admin") {
+        const deleteButton = document.createElement("button");
+        deleteButton.type = "button";
+        deleteButton.className = "ghost small";
+        deleteButton.textContent = "Delete admin";
+        deleteButton.addEventListener("click", async () => {
+          if (currentUserEmail && user.email === currentUserEmail) {
+            showToast("Cannot delete your own account", deleteButton);
+            return;
+          }
+          const confirmed = await openConfirm(`Delete admin ${user.email}?`);
+          if (!confirmed) {
+            return;
+          }
+          const res = await apiRequest({
+            endpoint: `/users/${user.id}`,
+            method: "DELETE",
+            auth: true,
+          });
+          appendLog(`DELETE /users/${user.id}`, res.data);
+          if (res.ok) {
+            showToast(`Deleted ${user.email}`, deleteButton);
+            refreshUsersList();
+          } else {
+            showToast("Delete failed", deleteButton);
+          }
+        });
+        row.appendChild(deleteButton);
       }
       list.appendChild(row);
     });

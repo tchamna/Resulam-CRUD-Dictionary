@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 from app.db.session import get_db
-from app.db.models import User, Word, InviteCode, EmailVerification
+from app.db.models import User, Word, InviteCode, EmailVerification, Item
 from app.core.security import require_role, get_current_user, is_super_admin
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -104,3 +104,37 @@ def deduplicate_user(
 
 	db.commit()
 	return {"status": "OK", "email": email, "deleted": len(duplicate_ids), "kept_id": keep.id}
+
+@router.delete("/{user_id}")
+def delete_user(
+	user_id: int,
+	db: Session = Depends(get_db),
+	current_user=Depends(get_current_user),
+):
+	if not is_super_admin(current_user):
+		raise HTTPException(status_code=403, detail="Forbidden")
+
+	target = db.query(User).filter(User.id == user_id).first()
+	if not target:
+		raise HTTPException(status_code=404, detail="User not found")
+	if target.id == current_user.id:
+		raise HTTPException(status_code=400, detail="Cannot delete your own account")
+	if is_super_admin(target):
+		raise HTTPException(status_code=403, detail="Cannot delete super admin")
+
+	db.query(Item).filter(Item.owner_id == user_id).delete(synchronize_session=False)
+	db.query(Word).filter(Word.updated_by_id == user_id).update(
+		{Word.updated_by_id: None}, synchronize_session=False
+	)
+	db.query(InviteCode).filter(InviteCode.used_by_id == user_id).update(
+		{InviteCode.used_by_id: None}, synchronize_session=False
+	)
+	db.query(InviteCode).filter(InviteCode.created_by_id == user_id).update(
+		{InviteCode.created_by_id: None}, synchronize_session=False
+	)
+	db.query(EmailVerification).filter(EmailVerification.user_id == user_id).delete(
+		synchronize_session=False
+	)
+	db.query(User).filter(User.id == user_id).delete()
+	db.commit()
+	return {"status": "OK", "id": user_id, "email": target.email, "deleted": 1}
