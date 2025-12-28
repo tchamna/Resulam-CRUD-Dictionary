@@ -66,6 +66,8 @@ def get_current_user(
 	user = db.query(User).filter(User.email == email).first()
 	if not user:
 		raise HTTPException(status_code=401, detail="User not found")
+	if user.is_deleted:
+		raise HTTPException(status_code=401, detail="User not found")
 	return user
 
 def get_optional_user(
@@ -88,6 +90,8 @@ def get_optional_user(
 
 	user = db.query(User).filter(User.email == email).first()
 	if not user:
+		raise HTTPException(status_code=401, detail="User not found")
+	if user.is_deleted:
 		raise HTTPException(status_code=401, detail="User not found")
 	return user
 

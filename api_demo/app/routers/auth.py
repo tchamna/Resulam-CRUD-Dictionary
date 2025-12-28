@@ -31,48 +31,49 @@ reset_tokens = {}  # email -> token
 def register(request: Request, payload: RegisterRequest, db: Session = Depends(get_db)):
 	email = payload.email.lower()
 	exists = db.query(User).filter(User.email == email).first()
-	if exists:
+	if exists and not exists.is_deleted:
 		raise HTTPException(status_code=409, detail="Email already registered")
 
-	invite = db.query(InviteCode).filter(InviteCode.code == payload.invite_code).first()
-	if not invite or invite.used_at:
-		raise HTTPException(status_code=403, detail="Invalid invite code")
+	needs_invite = not exists
+	invite = None
+	if needs_invite:
+		if not payload.invite_code:
+			raise HTTPException(status_code=403, detail="Invite code required")
+		invite = db.query(InviteCode).filter(InviteCode.code == payload.invite_code).first()
+		if not invite or invite.used_at:
+			raise HTTPException(status_code=403, detail="Invalid invite code")
 
-	user = User(
-		email=email,
-		password_hash=hash_password(payload.password),
-		role="user",
-		auth_provider="local",
-		is_verified=False,
-	)
-	db.add(user)
-	db.flush()
-	invite.used_by_id = user.id
-	invite.used_at = datetime.utcnow()
+	if exists and exists.is_deleted:
+		user = exists
+		user.password_hash = hash_password(payload.password)
+		user.role = "user"
+		user.auth_provider = "local"
+		user.google_sub = None
+		user.is_verified = True
+		user.is_deleted = False
+		user.deleted_at = None
+	else:
+		user = User(
+			email=email,
+			password_hash=hash_password(payload.password),
+			role="user",
+			auth_provider="local",
+			is_verified=True,
+		)
+		db.add(user)
+		db.flush()
+	if invite:
+		invite.used_by_id = user.id
+		invite.used_at = datetime.utcnow()
 	db.commit()
 
-	token = secrets.token_urlsafe(32)
-	verification = EmailVerification(
-		user_id=user.id,
-		token=token,
-		expires_at=datetime.utcnow() + timedelta(hours=24),
+	db.query(EmailVerification).filter(EmailVerification.user_id == user.id).delete(
+		synchronize_session=False
 	)
-	db.add(verification)
 	db.commit()
-
-	link = f"{settings.APP_BASE_URL}/?verify_token={token}"
-	error = send_email(
-		email,
-		"Verify your email",
-		f"Verify your email by visiting: {link}",
-	)
-	if error:
-		log_event("verify_email_send_failed", email=email, error=error, request_id=request.state.request_id)
 
 	log_event("user_registered", email=email, request_id=request.state.request_id)
-	response = {"status": "OK", "message": "Registered. Please verify your email."}
-	if error:
-		response["verification_token"] = token
+	response = {"status": "OK", "message": "Registered."}
 	return response
 
 @router.post("/login", response_model=TokenResponse)
@@ -80,7 +81,7 @@ def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)
 	email = payload.email.lower()
 	user = db.query(User).filter(User.email == email).first()
 
-	if not user or not verify_password(payload.password, user.password_hash):
+	if not user or user.is_deleted or not verify_password(payload.password, user.password_hash):
 		raise HTTPException(status_code=401, detail="Invalid credentials")
 	if not user.is_verified:
 		raise HTTPException(status_code=403, detail="Email not verified")
@@ -151,6 +152,8 @@ def request_verify_email(payload: VerifyEmailRequest, db: Session = Depends(get_
 	user = db.query(User).filter(User.email == email).first()
 	if not user:
 		return {"status": "OK", "message": "If the account exists, a verification email was sent."}
+	if user.is_deleted:
+		return {"status": "OK", "message": "If the account exists, a verification email was sent."}
 	if user.is_verified:
 		return {"status": "OK", "message": "Already verified."}
 
@@ -181,6 +184,8 @@ def confirm_verify_email(payload: VerifyEmailConfirmRequest, db: Session = Depen
 
 	user = db.query(User).filter(User.id == row.user_id).first()
 	if not user:
+		raise HTTPException(status_code=400, detail="Invalid token")
+	if user.is_deleted:
 		raise HTTPException(status_code=400, detail="Invalid token")
 
 	user.is_verified = True
@@ -271,11 +276,20 @@ def google_callback(code: str, state: str | None = None, db: Session = Depends(g
 		invite.used_at = datetime.utcnow()
 		db.commit()
 	else:
-		user.auth_provider = "google"
-		user.google_sub = sub
-		if not user.is_verified:
+		if user.is_deleted:
+			user.role = "user"
+			user.auth_provider = "google"
+			user.google_sub = sub
 			user.is_verified = True
-		db.commit()
+			user.is_deleted = False
+			user.deleted_at = None
+			db.commit()
+		else:
+			user.auth_provider = "google"
+			user.google_sub = sub
+			if not user.is_verified:
+				user.is_verified = True
+			db.commit()
 
 	access = create_access_token(email=email)
 	refresh = create_refresh_token(email=email)

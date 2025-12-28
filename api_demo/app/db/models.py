@@ -13,6 +13,8 @@ class User(Base):
 	auth_provider = Column(String, nullable=False, default="local")
 	google_sub = Column(String, unique=True, nullable=True)
 	is_verified = Column(Boolean, nullable=False, default=False)
+	is_deleted = Column(Boolean, nullable=False, default=False)
+	deleted_at = Column(DateTime, nullable=True)
 	created_at = Column(DateTime, default=datetime.utcnow)
 	defined_count = Column(Integer, nullable=False, default=0)
 

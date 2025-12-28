@@ -406,6 +406,11 @@ input {
   font-family: inherit;
 }
 
+input.input-error {
+  border-color: #d6453d;
+  box-shadow: 0 0 0 2px rgba(214, 69, 61, 0.15);
+}
+
 textarea {
   padding: 10px 12px;
   border-radius: 12px;

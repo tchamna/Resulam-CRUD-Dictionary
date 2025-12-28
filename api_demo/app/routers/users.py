@@ -1,9 +1,11 @@
+from datetime import datetime
+import secrets
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 from app.db.session import get_db
 from app.db.models import User, Word, InviteCode, EmailVerification, Item
-from app.core.security import require_role, get_current_user, is_super_admin
+from app.core.security import require_role, get_current_user, is_super_admin, hash_password
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -27,6 +29,7 @@ def list_users(db: Session = Depends(get_db), user=Depends(require_role("admin")
 			"role": u.role,
 			"defined_count": u.defined_count,
 			"is_verified": u.is_verified,
+			"is_deleted": u.is_deleted,
 		}
 		for u in rows
 	]
@@ -39,6 +42,7 @@ def get_me(user=Depends(get_current_user)):
 		"role": user.role,
 		"defined_count": user.defined_count,
 		"is_verified": user.is_verified,
+		"is_deleted": user.is_deleted,
 	}
 
 @router.put("/role")
@@ -54,6 +58,8 @@ def update_role(
 	target = db.query(User).filter(User.email == email).first()
 	if not target:
 		raise HTTPException(status_code=404, detail="User not found")
+	if target.is_deleted:
+		raise HTTPException(status_code=400, detail="User is deleted")
 	target.role = payload.role
 	db.commit()
 	return {"status": "OK", "id": target.id, "email": target.email, "role": target.role}
@@ -69,6 +75,8 @@ def verify_user(
 	if not targets:
 		raise HTTPException(status_code=404, detail="User not found")
 	for target in targets:
+		if target.is_deleted:
+			continue
 		target.is_verified = True
 	db.commit()
 	return {"status": "OK", "email": email, "count": len(targets), "is_verified": True}
@@ -81,6 +89,7 @@ def deduplicate_user(
 ):
 	email = payload.email.lower()
 	rows = db.query(User).filter(User.email == email).order_by(User.id.asc()).all()
+	rows = [row for row in rows if not row.is_deleted]
 	if len(rows) <= 1:
 		return {"status": "OK", "email": email, "deleted": 0}
 
@@ -123,9 +132,6 @@ def delete_user(
 		raise HTTPException(status_code=403, detail="Cannot delete super admin")
 
 	db.query(Item).filter(Item.owner_id == user_id).delete(synchronize_session=False)
-	db.query(Word).filter(Word.updated_by_id == user_id).update(
-		{Word.updated_by_id: None}, synchronize_session=False
-	)
 	db.query(InviteCode).filter(InviteCode.used_by_id == user_id).update(
 		{InviteCode.used_by_id: None}, synchronize_session=False
 	)
@@ -135,6 +141,12 @@ def delete_user(
 	db.query(EmailVerification).filter(EmailVerification.user_id == user_id).delete(
 		synchronize_session=False
 	)
-	db.query(User).filter(User.id == user_id).delete()
+	target.is_deleted = True
+	target.deleted_at = datetime.utcnow()
+	target.is_verified = False
+	target.role = "deleted"
+	target.auth_provider = "deleted"
+	target.google_sub = None
+	target.password_hash = hash_password(secrets.token_urlsafe(16))
 	db.commit()
 	return {"status": "OK", "id": user_id, "email": target.email, "deleted": 1}

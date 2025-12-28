@@ -3,8 +3,8 @@ from pydantic import BaseModel, EmailStr, Field, validator
 
 class RegisterRequest(BaseModel):
 	email: EmailStr
-	password: str = Field(min_length=8, max_length=72)
-	invite_code: str = Field(min_length=6)
+	password: str = Field(min_length=5, max_length=72)
+	invite_code: str | None = Field(default=None, min_length=6)
 
 	@validator("password")
 	def password_complexity(cls, v):
@@ -29,7 +29,7 @@ class ResetPasswordRequest(BaseModel):
 
 class ResetPasswordConfirmRequest(BaseModel):
 	token: str
-	new_password: str = Field(min_length=8, max_length=72)
+	new_password: str = Field(min_length=5, max_length=72)
 
 	@validator("new_password")
 	def new_password_complexity(cls, v):

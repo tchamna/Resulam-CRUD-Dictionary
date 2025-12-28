@@ -29,7 +29,7 @@
   </header>
 
   <nav class="menu admin-only">
-    <button class="menu-btn active" data-panel="panel-auth">Auth</button>
+    <button class="menu-btn active" data-panel="panel-auth">Authentication</button>
     <button class="menu-btn" data-panel="panel-dictionary">Dictionary</button>
     <button class="menu-btn" data-panel="panel-users">Users</button>
     <button class="menu-btn" data-panel="panel-log">Log</button>
@@ -37,7 +37,7 @@
 
   <main class="panels">
     <section id="panel-auth" class="panel panel-active">
-      <h2>Auth</h2>
+      <h2>Authentication</h2>
       <div class="sub-menu admin-only">
         <button class="sub-menu-btn active" data-auth-view="basic">Basic</button>
         <button class="sub-menu-btn" data-auth-view="advanced">Advanced</button>
@@ -51,12 +51,14 @@
           <form data-endpoint="/auth/register" data-method="POST" data-auth-tab="register" data-result-target="register-result">
             <label>Email<input name="email" type="email" required></label>
             <label>Password<input name="password" type="password" required></label>
-            <label class="invite-field">Invite code<input name="invite_code" type="text" required></label>
+            <p class="hint">Password must be at least 5 characters and include a letter and a number.</p>
+            <label>Confirm password<input name="confirm_password" type="password" required></label>
+            <label class="invite-field">Invite code (new accounts)<input name="invite_code" type="text"></label>
             <button type="submit">Create account</button>
             <button id="google-login" type="button" class="ghost">Sign up with Google</button>
             <label class="invite-field">Invite code (Google signup)<input id="google-invite" type="text"></label>
+            <div id="register-result" class="result"></div>
           </form>
-          <div id="register-result" class="result"></div>
           <form id="login-form" data-endpoint="/auth/login" data-method="POST" data-token-out="true" data-auth-tab="login">
             <label>Email<input name="email" type="email" required></label>
             <label>Password<input name="password" type="password" required></label>
@@ -194,6 +196,12 @@
           <button type="submit">Update role</button>
         </form>
         <div id="role-result" class="result"></div>
+        <form data-endpoint="/auth/invites" data-method="POST" data-auth="true" data-result-target="invite-result-users">
+          <h3>Create invite codes</h3>
+          <label>Quantity<input name="quantity" type="number" value="1" min="1" max="10" /></label>
+          <button type="submit">Create invite</button>
+        </form>
+        <div id="invite-result-users" class="result"></div>
       </div>
     </section>
 

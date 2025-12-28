@@ -18,6 +18,7 @@ const labelSynonyms = document.getElementById("label-synonyms");
 const labelTranslationFr = document.getElementById("label-translation-fr");
 const labelTranslationEn = document.getElementById("label-translation-en");
 const confirmModal = document.getElementById("confirm-modal");
+const confirmTitle = document.getElementById("confirm-title");
 const confirmBody = document.getElementById("confirm-body");
 const confirmCancel = document.getElementById("confirm-cancel");
 const confirmAccept = document.getElementById("confirm-accept");
@@ -33,6 +34,11 @@ let lastSearchLanguageId = "";
 let lastListMode = "search";
 let lastRandomLanguageId = "";
 let currentLanguageKey = "";
+const confirmDefaults = {
+  title: confirmTitle ? confirmTitle.textContent : "Confirm",
+  confirmText: confirmAccept ? confirmAccept.textContent : "Confirm",
+  cancelText: confirmCancel ? confirmCancel.textContent : "Cancel",
+};
 
 let clafricaMap = {};
 let clafricaKeys = [];
@@ -146,11 +152,19 @@ function isSuperAdmin() {
   return currentUserRole === "super_admin";
 }
 
-function openConfirm(message) {
+function openConfirm(message, options = {}) {
   if (!confirmModal || !confirmBody || !confirmAccept || !confirmCancel) {
     return Promise.resolve(false);
   }
+  const title = options.title || confirmDefaults.title;
+  const confirmText = options.confirmText || confirmDefaults.confirmText;
+  const cancelText = options.cancelText || confirmDefaults.cancelText;
+  if (confirmTitle) {
+    confirmTitle.textContent = title;
+  }
   confirmBody.textContent = message;
+  confirmAccept.textContent = confirmText;
+  confirmCancel.textContent = cancelText;
   confirmModal.classList.remove("is-hidden");
   return new Promise((resolve) => {
     confirmResolver = resolve;
@@ -260,7 +274,11 @@ function renderLanguageDropdown(list, query, shouldOpen = true) {
       if (!name) {
         return;
       }
-      const ok = await openConfirm(`Create new language "${name}"?`);
+      const ok = await openConfirm(`Create new language "${name}"?`, {
+        title: "Create language",
+        confirmText: "Create",
+        cancelText: "Edit",
+      });
       if (!ok) {
         if (languageInput) {
           languageInput.focus();
@@ -643,7 +661,7 @@ function renderResult(targetId, res) {
     return;
   }
 
-  if (targetId === "invite-result") {
+  if (targetId === "invite-result" || targetId === "invite-result-users") {
     if (!res.ok) {
       el.textContent = `Error ${res.status}: ${JSON.stringify(res.data)}`;
       return;
@@ -691,13 +709,20 @@ function renderResult(targetId, res) {
       const label = document.createElement("span");
       const count = typeof user.defined_count === "number" ? user.defined_count : 0;
       const verified = user.is_verified ? "verified" : "unverified";
-      label.textContent = `#${user.id} ${user.email} (${user.role}, ${verified}, ${count} defined)`;
+      const deletedTag = user.is_deleted ? ", deleted" : "";
+      label.textContent = `#${user.id} ${user.email} (${user.role}${deletedTag}, ${verified}, ${count} defined)`;
 
       const useButton = document.createElement("button");
       useButton.type = "button";
       useButton.className = "ghost small";
       useButton.textContent = "Use email";
+      if (user.is_deleted) {
+        useButton.disabled = true;
+      }
       useButton.addEventListener("click", () => {
+        if (user.is_deleted) {
+          return;
+        }
         const emailInput = document.querySelector(
           'form[data-endpoint="/users/role"] input[name="email"]'
         );
@@ -709,7 +734,7 @@ function renderResult(targetId, res) {
 
       row.appendChild(label);
       row.appendChild(useButton);
-      if ((emailCounts[user.email.toLowerCase()] || 0) > 1) {
+      if (!user.is_deleted && (emailCounts[user.email.toLowerCase()] || 0) > 1) {
         const dedupeButton = document.createElement("button");
         dedupeButton.type = "button";
         dedupeButton.className = "ghost small";
@@ -731,7 +756,7 @@ function renderResult(targetId, res) {
         });
         row.appendChild(dedupeButton);
       }
-      if (!user.is_verified) {
+      if (!user.is_deleted && !user.is_verified) {
         const verifyButton = document.createElement("button");
         verifyButton.type = "button";
         verifyButton.className = "ghost small";
@@ -753,17 +778,21 @@ function renderResult(targetId, res) {
         });
         row.appendChild(verifyButton);
       }
-      if (isSuperAdmin() && user.role === "admin") {
+      if (isSuperAdmin() && !user.is_deleted && user.role !== "super_admin") {
         const deleteButton = document.createElement("button");
         deleteButton.type = "button";
         deleteButton.className = "ghost small";
-        deleteButton.textContent = "Delete admin";
+        deleteButton.textContent = "Delete user";
         deleteButton.addEventListener("click", async () => {
           if (currentUserEmail && user.email === currentUserEmail) {
             showToast("Cannot delete your own account", deleteButton);
             return;
           }
-          const confirmed = await openConfirm(`Delete admin ${user.email}?`);
+          const confirmed = await openConfirm(`Delete ${user.email}?`, {
+            title: "Delete user",
+            confirmText: "Delete",
+            cancelText: "Cancel",
+          });
           if (!confirmed) {
             return;
           }
@@ -802,6 +831,24 @@ document.querySelectorAll("form").forEach((form) => {
     const resultTarget = form.dataset.resultTarget || "";
 
     const data = collectFormData(form);
+    if (endpointTemplate === "/auth/register") {
+      const confirmInput = form.querySelector('input[name="confirm_password"]');
+      if (!data.password || !data.confirm_password || data.password !== data.confirm_password) {
+        if (confirmInput) {
+          confirmInput.classList.add("input-error");
+          confirmInput.setAttribute("aria-invalid", "true");
+        }
+        showToast("Passwords do not match.", event.submitter);
+        return;
+      }
+      if (confirmInput) {
+        confirmInput.classList.remove("input-error");
+        confirmInput.removeAttribute("aria-invalid");
+      }
+    }
+    if (data.confirm_password) {
+      delete data.confirm_password;
+    }
     if (typeof data.search === "string") {
       data.search = data.search.trim();
     }
@@ -920,6 +967,30 @@ document.querySelectorAll("form").forEach((form) => {
       if (endpoint === "/auth/login" && !res.ok) {
         const detail = res.data?.detail || "Login failed.";
         showToast(detail, event.submitter);
+      }
+      if (endpoint === "/auth/register" && !res.ok) {
+        const detail = res.data?.detail || "Registration failed.";
+        showToast(detail, event.submitter);
+        if (res.status === 409 && data.email) {
+          const loginForm = document.getElementById("login-form");
+          if (loginForm) {
+            const emailInput = loginForm.querySelector('input[name="email"]');
+            if (emailInput) {
+              emailInput.value = data.email;
+            }
+            const loginTab = document.querySelector('.auth-tab[data-auth-tab="login"]');
+            if (loginTab) {
+              loginTab.click();
+            } else {
+              showAuthOnly("login");
+            }
+            loginForm.scrollIntoView({ behavior: "smooth", block: "start" });
+            const passwordInput = loginForm.querySelector('input[name="password"]');
+            if (passwordInput) {
+              passwordInput.focus();
+            }
+          }
+        }
       }
       if (expectsToken && res.ok && res.data.access_token) {
         setTokens(res.data.access_token, res.data.refresh_token || "");
@@ -1103,6 +1174,7 @@ document.querySelectorAll(".sub-menu-btn").forEach((button) => {
 document.querySelectorAll(".auth-tab").forEach((button) => {
   button.addEventListener("click", () => {
     const target = button.dataset.authTab;
+    setAuthPreference(target);
     document.querySelectorAll(".auth-tab").forEach((btn) => {
       btn.classList.toggle("active", btn === button);
     });
@@ -1214,7 +1286,15 @@ function showDictionaryOnly() {
 }
 
 if (!isAdminRoute) {
-  showAuthOnly(getPreferredAuthTab());
+  const firstVisitKey = "auth_first_visit_done";
+  const hasTokens = Boolean(tokenStore.access);
+  const firstVisit = !sessionStorage.getItem(firstVisitKey);
+  if (!hasTokens && firstVisit) {
+    showAuthOnly("register");
+    sessionStorage.setItem(firstVisitKey, "true");
+  } else {
+    showAuthOnly(getPreferredAuthTab());
+  }
 }
 
 if (isAdminRoute) {
@@ -1222,14 +1302,31 @@ if (isAdminRoute) {
   const loginTab = document.querySelector('.auth-tab[data-auth-tab="login"]');
   const registerForm = document.querySelector('.auth-basic form[data-auth-tab="register"]');
   const loginForm = document.querySelector('.auth-basic form[data-auth-tab="login"]');
+  const authTabs = document.querySelector(".auth-tabs");
+  const subMenu = document.querySelector(".sub-menu");
+  const registerResult = document.getElementById("register-result");
   if (registerTab) registerTab.classList.add("is-hidden");
+  if (registerTab) registerTab.classList.remove("active");
   if (registerForm) registerForm.classList.add("is-hidden");
   if (loginTab) loginTab.classList.add("active");
   if (loginForm) loginForm.classList.remove("is-hidden");
+  if (authTabs) authTabs.classList.add("is-hidden");
+  if (subMenu) subMenu.classList.add("is-hidden");
+  if (registerResult) registerResult.classList.add("is-hidden");
   const registerButtons = document.querySelectorAll(
     '.auth-basic form[data-auth-tab="register"] button, .auth-basic form[data-auth-tab="register"] .result'
   );
   registerButtons.forEach((el) => el.classList.add("is-hidden"));
+  if (loginForm) {
+    let loginButton = loginForm.querySelector('button[type="submit"]');
+    if (!loginButton) {
+      loginButton = document.createElement("button");
+      loginButton.type = "submit";
+      loginButton.textContent = "Login";
+      loginForm.appendChild(loginButton);
+    }
+    loginButton.classList.remove("is-hidden");
+  }
 }
 
 const activeAuthTab = document.querySelector(".auth-tab.active");
