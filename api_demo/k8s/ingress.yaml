@@ -1,0 +1,60 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: resulam-ingress
+  namespace: resulam
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "20m"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: resulam-crud-dictionary.tchamna.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: api-demo-web
+            port:
+              number: 8000
+  - host: resulam-royalties.tchamna.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: resulam-royalties
+            port:
+              number: 8050
+  - host: portfolio.tchamna.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: portfolio-next
+            port:
+              number: 3000
+  - host: document-intelligence.tchamna.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: document-intelligence
+            port:
+              number: 8000
+  - host: rag-ai.tchamna.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: rag-ai-app
+            port:
+              number: 8080

@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: api-demo-db
+  namespace: resulam
+spec:
+  serviceName: api-demo-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-demo-db
+  template:
+    metadata:
+      labels:
+        app: api-demo-db
+    spec:
+      containers:
+      - name: postgres
+        image: local/api_demo_db:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_DB
+          value: african_dictionaries
+        - name: POSTGRES_USER
+          value: postgres
+        - name: POSTGRES_PASSWORD
+          value: postgres
+        volumeMounts:
+        - name: pgdata
+          mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+  - metadata:
+      name: pgdata
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-demo-db
+  namespace: resulam
+spec:
+  ports:
+  - port: 5432
+    targetPort: 5432
+  selector:
+    app: api-demo-db
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-demo-web
+  namespace: resulam
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-demo-web
+  template:
+    metadata:
+      labels:
+        app: api-demo-web
+    spec:
+      containers:
+      - name: web
+        image: local/api_demo_web:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+        envFrom:
+        - secretRef:
+            name: api-demo-env
+        env:
+        - name: DATABASE_URL
+          value: postgresql+psycopg2://postgres:postgres@api-demo-db:5432/african_dictionaries
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-demo-web
+  namespace: resulam
+spec:
+  selector:
+    app: api-demo-web
+  ports:
+  - port: 8000
+    targetPort: 8000
