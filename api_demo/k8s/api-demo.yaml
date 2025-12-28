@@ -17,7 +17,7 @@ spec:
       containers:
       - name: postgres
         image: local/api_demo_db:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Never
         ports:
         - containerPort: 5432
         env:
@@ -69,7 +69,7 @@ spec:
       containers:
       - name: web
         image: local/api_demo_web:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Never
         ports:
         - containerPort: 8000
         envFrom:

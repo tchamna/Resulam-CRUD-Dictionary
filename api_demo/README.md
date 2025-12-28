@@ -44,6 +44,37 @@ docker compose up --build
 
 The API will be available at http://localhost:8000/
 
+## Run on EC2 with k3s + system nginx
+This setup keeps the existing system nginx + Let’s Encrypt certs on the host,
+and routes traffic to k3s via the ingress controller ClusterIP.
+
+1) Install k3s and ingress-nginx (single-node).
+2) Build images locally on the EC2 host and import them into k3s containerd.
+3) Apply the manifests in `api_demo/k8s/`.
+4) Point nginx to the ingress-nginx ClusterIP.
+
+Example commands:
+```bash
+# build images
+docker build -t local/api_demo_web:latest .
+docker build -t local/api_demo_db:latest -f docker/postgres/Dockerfile .
+
+# import into k3s containerd
+docker save local/api_demo_web:latest | sudo k3s ctr images import -
+docker save local/api_demo_db:latest | sudo k3s ctr images import -
+
+# apply k8s manifests
+sudo k3s kubectl apply -f k8s/namespace.yaml
+sudo k3s kubectl apply -f k8s/api-demo.yaml
+sudo k3s kubectl apply -f k8s/ingress.yaml
+
+# update nginx to proxy to ingress ClusterIP (example)
+# proxy_pass http://10.43.65.1:80;
+```
+
+Note: k3s installs Traefik by default. If you are using ingress-nginx, remove Traefik
+to avoid iptables REJECT rules on 80/443.
+
 ## Configuration
 Environment variables (defaults shown):
 - `DATABASE_URL=sqlite:///./app.db`
