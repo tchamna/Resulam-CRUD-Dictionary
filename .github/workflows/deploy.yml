@@ -120,7 +120,7 @@ jobs:
             sudo chmod +x /usr/local/bin/docker-compose
           fi
           if command -v docker-compose >/dev/null 2>&1; then
-            DATABASE_URL="$COMPOSE_DATABASE_URL" docker-compose -f api_demo/docker-compose.yml up -d --build db
+            DATABASE_URL="$COMPOSE_DATABASE_URL" docker-compose -f api_demo/docker-compose.yml up -d --build --force-recreate db
             db_ready=false
             for i in $(seq 1 60); do
               if docker-compose -f api_demo/docker-compose.yml exec -T db pg_isready -U postgres >/dev/null 2>&1; then
@@ -134,7 +134,7 @@ jobs:
               docker-compose -f api_demo/docker-compose.yml logs db --tail 200
               exit 1
             fi
-            DATABASE_URL="$COMPOSE_DATABASE_URL" docker-compose -f api_demo/docker-compose.yml up -d --build web
+            DATABASE_URL="$COMPOSE_DATABASE_URL" docker-compose -f api_demo/docker-compose.yml up -d --build --force-recreate web
             for i in $(seq 1 5); do
               if DATABASE_URL="$COMPOSE_DATABASE_URL" docker-compose -f api_demo/docker-compose.yml exec -T web alembic upgrade head; then
                 break
@@ -142,7 +142,7 @@ jobs:
               sleep 5
             done
           elif docker compose version >/dev/null 2>&1; then
-            DATABASE_URL="$COMPOSE_DATABASE_URL" docker compose -f api_demo/docker-compose.yml up -d --build db
+            DATABASE_URL="$COMPOSE_DATABASE_URL" docker compose -f api_demo/docker-compose.yml up -d --build --force-recreate db
             db_ready=false
             for i in $(seq 1 60); do
               if docker compose -f api_demo/docker-compose.yml exec -T db pg_isready -U postgres >/dev/null 2>&1; then
@@ -156,7 +156,7 @@ jobs:
               docker compose -f api_demo/docker-compose.yml logs db --tail 200
               exit 1
             fi
-            DATABASE_URL="$COMPOSE_DATABASE_URL" docker compose -f api_demo/docker-compose.yml up -d --build web
+            DATABASE_URL="$COMPOSE_DATABASE_URL" docker compose -f api_demo/docker-compose.yml up -d --build --force-recreate web
             for i in $(seq 1 5); do
               if DATABASE_URL="$COMPOSE_DATABASE_URL" docker compose -f api_demo/docker-compose.yml exec -T web alembic upgrade head; then
                 break
