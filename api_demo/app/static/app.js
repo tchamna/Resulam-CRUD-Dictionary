@@ -39,6 +39,23 @@ let clafricaKeys = [];
 let clafricaMaxKeyLen = 0;
 let clafricaPrefixes = new Set();
 
+function getPreferredAuthTab() {
+  const adminRoute = window.location.pathname.startsWith("/admin");
+  if (adminRoute) {
+    return "login";
+  }
+  const pref = localStorage.getItem("auth_pref");
+  return pref === "login" ? "login" : "register";
+}
+
+function setAuthPreference(tab) {
+  if (!tab) {
+    localStorage.removeItem("auth_pref");
+    return;
+  }
+  localStorage.setItem("auth_pref", tab);
+}
+
 const tokenStore = {
   access: localStorage.getItem("access_token") || "",
   refresh: localStorage.getItem("refresh_token") || "",
@@ -946,6 +963,7 @@ const logoutButton = document.getElementById("logout-button");
 if (logoutButton) {
   logoutButton.addEventListener("click", () => {
     setTokens("", "");
+    setAuthPreference("login");
     showToast("Signed out.", logoutButton);
     if (!isAdminRoute) {
       showAuthOnly("login");
@@ -1196,7 +1214,7 @@ function showDictionaryOnly() {
 }
 
 if (!isAdminRoute) {
-  showAuthOnly("login");
+  showAuthOnly(getPreferredAuthTab());
 }
 
 if (isAdminRoute) {
@@ -1228,7 +1246,7 @@ loadCurrentUser().then((user) => {
     if (user && tokenStore.access) {
       showDictionaryOnly();
     } else {
-      showAuthOnly("login");
+      showAuthOnly(getPreferredAuthTab());
     }
   }
 });
