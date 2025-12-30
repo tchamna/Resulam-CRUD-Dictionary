@@ -96,7 +96,11 @@ jobs:
             git init
             git remote add origin "$REPO_URL"
           fi
-          git fetch origin main
+          git remote set-url origin "$REPO_URL"
+          git fetch --prune --force origin main || {
+            git update-ref -d refs/remotes/origin/main || true
+            git fetch --prune --force origin main
+          }
           git reset --hard origin/main
           git clean -fd -e .env || true
           SSHINIT
