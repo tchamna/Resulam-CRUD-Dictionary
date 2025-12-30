@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 from threading import Lock
 
+from sqlalchemy import create_engine, MetaData, select
 from sqlalchemy.engine.url import make_url
 
 from app.core.config import settings
@@ -69,6 +70,16 @@ def _upload_database_backup(reason: str) -> None:
 	log_event("s3_backup_complete", reason=reason, object_key=object_name)
 	_cleanup_old_backups(prefix, base_name, settings.S3_SNAPSHOT_RETENTION)
 
+	if (not driver.startswith("sqlite")) and settings.S3_SQLITE_SNAPSHOT_ENABLED:
+		sqlite_base = f"{base_name}-sqlite"
+		sqlite_object_name = f"{prefix}/{sqlite_base}-{timestamp}.db"
+		with tempfile.TemporaryDirectory() as temp_dir:
+			sqlite_path = Path(temp_dir) / f"{sqlite_base}-{timestamp}.db"
+			_export_postgres_to_sqlite(sqlite_path, pg_url)
+			_upload_to_s3(sqlite_path, sqlite_object_name)
+		log_event("s3_sqlite_backup_complete", reason=reason, object_key=sqlite_object_name)
+		_cleanup_old_backups(prefix, sqlite_base, settings.S3_SQLITE_SNAPSHOT_RETENTION)
+
 
 def _write_sqlite_backup(source_path: Path, dest_path: Path) -> None:
 	source_conn = sqlite3.connect(str(source_path))
@@ -116,6 +127,24 @@ def _normalize_pg_url(url):
 	if driver and driver != url.drivername:
 		return url.set(drivername=driver)
 	return url
+
+
+def _export_postgres_to_sqlite(sqlite_path: Path, pg_url) -> None:
+	src_engine = create_engine(pg_url)
+	dest_engine = create_engine(f"sqlite:///{sqlite_path}")
+
+	metadata = MetaData()
+	metadata.reflect(bind=src_engine)
+	metadata.create_all(bind=dest_engine)
+
+	with src_engine.connect() as src_conn, dest_engine.begin() as dest_conn:
+		for table in metadata.sorted_tables:
+			result = src_conn.execute(select(table))
+			while True:
+				rows = result.fetchmany(1000)
+				if not rows:
+					break
+				dest_conn.execute(table.insert(), [dict(row._mapping) for row in rows])
 
 
 def _cleanup_old_backups(prefix: str, base_name: str, retention: int) -> None:

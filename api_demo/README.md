@@ -99,6 +99,8 @@ Environment variables (defaults shown):
 - `S3_AUTO_BACKUP_ENABLED=false`
 - `S3_AUTO_BACKUP_MIN_INTERVAL_SEC=0`
 - `S3_SNAPSHOT_RETENTION=5`
+- `S3_SQLITE_SNAPSHOT_ENABLED=false`
+- `S3_SQLITE_SNAPSHOT_RETENTION=1`
 
 ## Super admin
 On startup, the app creates (or updates) a super admin account using the env vars above.
