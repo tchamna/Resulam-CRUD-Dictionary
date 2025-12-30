@@ -50,6 +50,14 @@ def create_refresh_token(email: str) -> str:
 	return _create_token(email, "refresh", delta)
 
 def decode_token(token: str) -> dict:
+	ignore_exp = settings.ACCESS_TOKEN_EXPIRES_MIN <= 0 and settings.REFRESH_TOKEN_EXPIRES_DAYS <= 0
+	if ignore_exp:
+		return jwt.decode(
+			token,
+			settings.JWT_SECRET,
+			algorithms=[settings.JWT_ALG],
+			options={"verify_exp": False},
+		)
 	return jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALG])
 
 def get_current_user(

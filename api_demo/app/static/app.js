@@ -22,6 +22,10 @@ const confirmTitle = document.getElementById("confirm-title");
 const confirmBody = document.getElementById("confirm-body");
 const confirmCancel = document.getElementById("confirm-cancel");
 const confirmAccept = document.getElementById("confirm-accept");
+const tokenExpiredModal = document.getElementById("token-expired-modal");
+const tokenExpiredTitle = document.getElementById("token-expired-title");
+const tokenExpiredBody = document.getElementById("token-expired-body");
+const tokenExpiredSignIn = document.getElementById("token-expired-signin");
 const toolsToggle = document.getElementById("toggle-tools");
 const toolsPanel = document.getElementById("tools-panel");
 
@@ -34,6 +38,7 @@ let lastSearchLanguageId = "";
 let lastListMode = "search";
 let lastRandomLanguageId = "";
 let currentLanguageKey = "";
+let tokenExpiredOpen = false;
 const confirmDefaults = {
   title: confirmTitle ? confirmTitle.textContent : "Confirm",
   confirmText: confirmAccept ? confirmAccept.textContent : "Confirm",
@@ -101,6 +106,49 @@ function showToast(message, anchor) {
   }, 1800);
 }
 
+function focusLoginForm() {
+  const loginForm = document.getElementById("login-form");
+  if (!loginForm) {
+    return;
+  }
+  const loginTab = document.querySelector('.auth-tab[data-auth-tab="login"]');
+  if (loginTab) {
+    loginTab.click();
+  }
+  loginForm.scrollIntoView({ behavior: "smooth", block: "start" });
+  const passwordInput = loginForm.querySelector('input[name="password"]');
+  if (passwordInput) {
+    passwordInput.focus();
+  }
+}
+
+function showTokenExpired(message) {
+  if (tokenExpiredOpen || !tokenExpiredModal) {
+    return;
+  }
+  tokenExpiredOpen = true;
+  if (tokenExpiredTitle) {
+    tokenExpiredTitle.textContent = "Token Expired";
+  }
+  if (tokenExpiredBody) {
+    tokenExpiredBody.textContent = message || "Your session expired. Please sign in again.";
+  }
+  setTokens("", "");
+  setAuthPreference("login");
+  showAuthOnly("login");
+  tokenExpiredModal.classList.remove("is-hidden");
+  if (tokenExpiredSignIn) {
+    tokenExpiredSignIn.focus();
+  }
+}
+
+function closeTokenExpired() {
+  if (tokenExpiredModal) {
+    tokenExpiredModal.classList.add("is-hidden");
+  }
+  tokenExpiredOpen = false;
+}
+
 function appendLog(title, payload) {
   const stamp = new Date().toLocaleTimeString();
   const line = `\n[${stamp}] ${title}\n${JSON.stringify(payload, null, 2)}`;
@@ -146,6 +194,11 @@ async function apiRequest({ endpoint, method, body, auth, retryOnUnauthorized = 
         return apiRequest({ endpoint, method, body, auth, retryOnUnauthorized: false });
       }
     }
+  }
+
+  if (response.status === 401 && auth && (tokenStore.access || tokenStore.refresh)) {
+    const detail = data?.detail || "Token expired.";
+    showTokenExpired(detail);
   }
 
   return { status: response.status, ok: response.ok, data };
@@ -214,6 +267,21 @@ if (confirmModal) {
   confirmModal.addEventListener("click", (event) => {
     if (event.target && event.target.classList.contains("modal-backdrop")) {
       closeConfirm(false);
+    }
+  });
+}
+
+if (tokenExpiredSignIn) {
+  tokenExpiredSignIn.addEventListener("click", () => {
+    closeTokenExpired();
+    focusLoginForm();
+  });
+}
+
+if (tokenExpiredModal) {
+  tokenExpiredModal.addEventListener("click", (event) => {
+    if (event.target && event.target.classList.contains("modal-backdrop")) {
+      closeTokenExpired();
     }
   });
 }
