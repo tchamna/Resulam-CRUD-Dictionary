@@ -106,6 +106,18 @@ function showToast(message, anchor) {
   }, 1800);
 }
 
+function focusRandomWords() {
+  const randomForm = document.querySelector('form[data-endpoint="/dictionary/random"]');
+  if (!randomForm) {
+    return;
+  }
+  randomForm.scrollIntoView({ behavior: "smooth", block: "start" });
+  const submitButton = document.getElementById("random-submit");
+  if (submitButton) {
+    submitButton.focus();
+  }
+}
+
 function focusLoginForm() {
   const loginForm = document.getElementById("login-form");
   if (!loginForm) {
@@ -1044,13 +1056,37 @@ document.querySelectorAll("form").forEach((form) => {
     }
 
     const body = method === "GET" || method === "DELETE" ? null : data;
+    const isDefinitionSaveRequest =
+      form.id === "definition-form" &&
+      ((endpointTemplate === "/dictionary/:id" && method === "PUT") ||
+        (endpointTemplate === "/dictionary" && method === "POST"));
+    let definitionSaveAnnounced = false;
+    if (isDefinitionSaveRequest) {
+      showToast("Definition saved", event.submitter);
+      focusRandomWords();
+      definitionSaveAnnounced = true;
+    }
 
     try {
       const res = await apiRequest({ endpoint: endpointWithQuery, method, body, auth: needsAuth });
       appendLog(`${method} ${endpointWithQuery} -> ${res.status}`, res.data);
-      if (endpointTemplate === "/dictionary/:id" && method === "PUT" && res.ok) {
-        showToast("Definition saved", event.submitter);
-        await replaceDefinedEntry(res.data.id);
+      const isDefinitionForm = form.id === "definition-form";
+      const isDefinitionSave =
+        res.ok &&
+        isDefinitionForm &&
+        ((endpointTemplate === "/dictionary/:id" && method === "PUT") ||
+          (endpointTemplate === "/dictionary" && method === "POST"));
+      if (isDefinitionSave) {
+        if (!definitionSaveAnnounced) {
+          showToast("Definition saved", event.submitter);
+          focusRandomWords();
+        }
+        if (endpointTemplate === "/dictionary/:id" && method === "PUT") {
+          await replaceDefinedEntry(res.data.id);
+        }
+      } else if (isDefinitionSaveRequest && !res.ok) {
+        const detail = res.data?.detail || "Save failed.";
+        showToast(detail, event.submitter);
       }
       if (endpoint === "/auth/register" && res.ok) {
         const loginForm = document.getElementById("login-form");
