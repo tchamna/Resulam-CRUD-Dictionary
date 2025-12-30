@@ -9,6 +9,7 @@ from app.schemas.dictionary import WordUpdate, WordCreate, LanguageCreate
 from app.core.security import get_current_user, get_optional_user, require_role, require_verified_user
 from app.core.clafrica import load_clafrica_map
 from app.core.config import settings
+from app.core.logging import log_event
 from app.db.seed import resolve_word_list_path, seed_words
 from app.db.backup import backup_db_to_s3
 
@@ -110,6 +111,17 @@ def update_word(
 		user.defined_count = (user.defined_count or 0) + 1
 	db.commit()
 	db.refresh(word)
+	log_event(
+		"dictionary_update",
+		word_id=word.id,
+		language_id=word.language_id,
+		user_id=user.id,
+		definition_len=len(payload.definition or ""),
+		examples_len=len(payload.examples or ""),
+		synonyms_len=len(payload.synonyms or ""),
+		translation_fr_len=len(payload.translation_fr or ""),
+		translation_en_len=len(payload.translation_en or ""),
+	)
 	backup_db_to_s3(reason="dictionary_update")
 	return {"status": "OK", "id": word.id, "word": word.word}
 
@@ -144,6 +156,17 @@ def create_word(
 	user.defined_count = (user.defined_count or 0) + 1
 	db.commit()
 	db.refresh(row)
+	log_event(
+		"dictionary_create",
+		word_id=row.id,
+		language_id=row.language_id,
+		user_id=user.id,
+		definition_len=len(payload.definition or ""),
+		examples_len=len(payload.examples or ""),
+		synonyms_len=len(payload.synonyms or ""),
+		translation_fr_len=len(payload.translation_fr or ""),
+		translation_en_len=len(payload.translation_en or ""),
+	)
 	backup_db_to_s3(reason="dictionary_create")
 	return {"status": "OK", "id": row.id, "word": row.word}
 
