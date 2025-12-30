@@ -78,9 +78,13 @@ def _write_sqlite_backup(source_path: Path, dest_path: Path) -> None:
 
 
 def _dump_postgres(dest_path: Path, url) -> None:
+	if hasattr(url, "render_as_string"):
+		url_str = url.render_as_string(hide_password=False)
+	else:
+		url_str = str(url)
 	with dest_path.open("wb") as handle:
 		result = subprocess.run(
-			["pg_dump", str(url)],
+			["pg_dump", url_str],
 			check=False,
 			stdout=handle,
 			stderr=subprocess.PIPE,
