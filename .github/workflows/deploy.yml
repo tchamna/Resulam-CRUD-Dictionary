@@ -98,6 +98,9 @@ jobs:
           WALG_S3_PREFIX=$WALG_S3_PREFIX
           WALG_COMPRESSION_METHOD=$WALG_COMPRESSION_METHOD
           EOF
+          if [ "$S3_PREFIX" = "/" ]; then
+            sed -i 's/^S3_PREFIX=.*/S3_PREFIX=crud_dictionaries/' "$env_file"
+          fi
           ssh -i ~/.ssh/ec2-key.pem -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ServerAliveCountMax=10 \
             "$EC2_USER@$EC2_HOST" APP_DIR="$APP_DIR" REPO_URL="$REPO_URL" bash -s <<'SSHINIT'
           set -euo pipefail

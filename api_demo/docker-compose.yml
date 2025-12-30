@@ -24,6 +24,8 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://postgres:postgres@db:5432/african_dictionaries}
       JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+      ACCESS_TOKEN_EXPIRES_MIN: ${ACCESS_TOKEN_EXPIRES_MIN:-0}
+      REFRESH_TOKEN_EXPIRES_DAYS: ${REFRESH_TOKEN_EXPIRES_DAYS:-0}
       SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-superadmin@example.com}
       SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:-superadmin}
       WORD_LIST_PATH: ${WORD_LIST_PATH:-nufi_word_list.txt}
