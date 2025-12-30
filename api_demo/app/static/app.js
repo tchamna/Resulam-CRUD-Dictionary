@@ -893,6 +893,32 @@ document.querySelectorAll("form").forEach((form) => {
       data.refresh_token = tokenStore.refresh;
     }
     if (form.id === "definition-form") {
+      if (!data.language_id) {
+        showToast("Select a language before saving.", event.submitter);
+        return;
+      }
+      if (!data.id && data.word) {
+        const searchWord = String(data.word).trim();
+        if (searchWord) {
+          const lookupParams = new URLSearchParams({
+            language_id: data.language_id,
+            search: searchWord,
+            limit: "50",
+            offset: "0",
+          });
+          const lookup = await apiRequest({
+            endpoint: `/dictionary?${lookupParams.toString()}`,
+            method: "GET",
+            auth: needsAuth,
+          });
+          if (lookup.ok && Array.isArray(lookup.data)) {
+            const exact = lookup.data.find((row) => row.word === searchWord);
+            if (exact) {
+              data.id = String(exact.id);
+            }
+          }
+        }
+      }
       if (data.id) {
         endpointTemplate = "/dictionary/:id";
         method = "PUT";
