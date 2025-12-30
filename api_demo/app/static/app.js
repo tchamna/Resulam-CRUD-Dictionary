@@ -125,9 +125,9 @@ function focusRandomWords() {
   window.requestAnimationFrame(() => {
     randomForm.scrollIntoView({ behavior: "smooth", block: "start" });
   });
-  const limitInput = document.getElementById("dictionary-limit");
-  if (limitInput) {
-    limitInput.focus();
+  const submitButton = document.getElementById("random-submit");
+  if (submitButton) {
+    submitButton.focus();
   }
 }
 
@@ -1225,6 +1225,7 @@ if (randomForm) {
   const countInput = randomForm.querySelector('input[name="limit"]');
   const limitInput = document.getElementById("dictionary-limit");
   const countLabel = document.getElementById("random-count-label");
+  const submitButton = document.getElementById("random-submit");
   let randomRefreshTimer = null;
   const scheduleRandomRefresh = () => {
     if (!randomLanguageId || !randomLanguageId.value) {
@@ -1251,6 +1252,9 @@ if (randomForm) {
     }
     if (countLabel) {
       countLabel.textContent = `Showing ${boundedValue} random words.`;
+    }
+    if (submitButton) {
+      submitButton.textContent = `Next ${boundedValue} random words`;
     }
     scheduleRandomRefresh();
   };
