@@ -6,11 +6,13 @@ import time
 from pathlib import Path
 from threading import Lock
 
-from sqlalchemy import create_engine, MetaData, select
+from sqlalchemy import create_engine, select
 from sqlalchemy.engine.url import make_url
 
 from app.core.config import settings
 from app.core.logging import log_event
+from app.db.base import Base
+import app.db.models  # noqa: F401
 
 _backup_lock = Lock()
 _last_backup_at = 0.0
@@ -133,12 +135,10 @@ def _export_postgres_to_sqlite(sqlite_path: Path, pg_url) -> None:
 	src_engine = create_engine(pg_url)
 	dest_engine = create_engine(f"sqlite:///{sqlite_path}")
 
-	metadata = MetaData()
-	metadata.reflect(bind=src_engine)
-	metadata.create_all(bind=dest_engine)
+	Base.metadata.create_all(bind=dest_engine)
 
 	with src_engine.connect() as src_conn, dest_engine.begin() as dest_conn:
-		for table in metadata.sorted_tables:
+		for table in Base.metadata.sorted_tables:
 			result = src_conn.execute(select(table))
 			while True:
 				rows = result.fetchmany(1000)
