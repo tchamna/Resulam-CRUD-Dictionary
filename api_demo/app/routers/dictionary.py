@@ -11,7 +11,6 @@ from app.core.clafrica import load_clafrica_map
 from app.core.config import settings
 from app.core.logging import log_event
 from app.db.seed import resolve_word_list_path, seed_words
-from app.db.backup import backup_db_to_s3
 
 router = APIRouter(prefix="/dictionary", tags=["dictionary"])
 
@@ -122,7 +121,6 @@ def update_word(
 		translation_fr_len=len(payload.translation_fr or ""),
 		translation_en_len=len(payload.translation_en or ""),
 	)
-	backup_db_to_s3(reason="dictionary_update")
 	return {"status": "OK", "id": word.id, "word": word.word}
 
 
@@ -167,7 +165,6 @@ def create_word(
 		translation_fr_len=len(payload.translation_fr or ""),
 		translation_en_len=len(payload.translation_en or ""),
 	)
-	backup_db_to_s3(reason="dictionary_create")
 	return {"status": "OK", "id": row.id, "word": row.word}
 
 

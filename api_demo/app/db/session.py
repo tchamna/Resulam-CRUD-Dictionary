@@ -1,5 +1,6 @@
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
+from threading import Thread
 from app.core.config import settings
 from app.db.backup import backup_db_to_s3
 
@@ -16,7 +17,7 @@ def _mark_session_backup(session):
 @event.listens_for(SessionLocal, "after_commit")
 def _run_session_backup(session):
 	if session.info.pop("needs_s3_backup", False):
-		backup_db_to_s3(reason="commit")
+		Thread(target=backup_db_to_s3, kwargs={"reason": "commit"}, daemon=True).start()
 
 def get_db():
 	db = SessionLocal()
