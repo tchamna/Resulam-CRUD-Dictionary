@@ -58,11 +58,9 @@ jobs:
           S3_PREFIX: ${{ secrets.S3_PREFIX || vars.S3_PREFIX || 'crud_dictionaries' }}
           S3_AUTO_BACKUP_ENABLED: ${{ secrets.S3_AUTO_BACKUP_ENABLED || vars.S3_AUTO_BACKUP_ENABLED || 'true' }}
           S3_AUTO_BACKUP_MIN_INTERVAL_SEC: ${{ secrets.S3_AUTO_BACKUP_MIN_INTERVAL_SEC || vars.S3_AUTO_BACKUP_MIN_INTERVAL_SEC || '0' }}
-          S3_SNAPSHOT_RETENTION: ${{ secrets.S3_SNAPSHOT_RETENTION || vars.S3_SNAPSHOT_RETENTION || '5' }}
+          S3_SNAPSHOT_RETENTION: ${{ secrets.S3_SNAPSHOT_RETENTION || vars.S3_SNAPSHOT_RETENTION || '1' }}
           S3_SQLITE_SNAPSHOT_ENABLED: ${{ secrets.S3_SQLITE_SNAPSHOT_ENABLED || vars.S3_SQLITE_SNAPSHOT_ENABLED || 'true' }}
           S3_SQLITE_SNAPSHOT_RETENTION: ${{ secrets.S3_SQLITE_SNAPSHOT_RETENTION || vars.S3_SQLITE_SNAPSHOT_RETENTION || '1' }}
-          WALG_S3_PREFIX: ${{ secrets.WALG_S3_PREFIX || vars.WALG_S3_PREFIX }}
-          WALG_COMPRESSION_METHOD: ${{ secrets.WALG_COMPRESSION_METHOD || vars.WALG_COMPRESSION_METHOD || 'brotli' }}
           CRON_SCHEDULE: ${{ secrets.BACKUP_CRON || vars.BACKUP_CRON || '*/5 * * * *' }}
         run: |
           set -euo pipefail
@@ -95,8 +93,6 @@ jobs:
           S3_SNAPSHOT_RETENTION=$S3_SNAPSHOT_RETENTION
           S3_SQLITE_SNAPSHOT_ENABLED=$S3_SQLITE_SNAPSHOT_ENABLED
           S3_SQLITE_SNAPSHOT_RETENTION=$S3_SQLITE_SNAPSHOT_RETENTION
-          WALG_S3_PREFIX=$WALG_S3_PREFIX
-          WALG_COMPRESSION_METHOD=$WALG_COMPRESSION_METHOD
           EOF
           if [ "$S3_PREFIX" = "/" ]; then
             sed -i 's/^S3_PREFIX=.*/S3_PREFIX=crud_dictionaries/' "$env_file"
@@ -190,6 +186,6 @@ jobs:
           fi
           APP_DIR="$APP_DIR" S3_BUCKET="$S3_BUCKET" S3_PREFIX="$S3_PREFIX" DATABASE_URL="$DATABASE_URL" CRON_SCHEDULE="$CRON_SCHEDULE" \
             bash scripts/deploy/setup_backup_cron.sh
-          APP_DIR="$APP_DIR" WALG_S3_PREFIX="$WALG_S3_PREFIX" CRON_SCHEDULE="$CRON_SCHEDULE" \
+          APP_DIR="$APP_DIR" WALG_S3_PREFIX="" CRON_SCHEDULE="$CRON_SCHEDULE" \
             bash scripts/deploy/setup_walg_backup_cron.sh
           SSHDEPLOY

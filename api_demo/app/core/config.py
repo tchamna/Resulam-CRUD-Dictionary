@@ -35,7 +35,7 @@ class Settings:
 	S3_PREFIX = os.getenv("S3_PREFIX", "backups")
 	S3_AUTO_BACKUP_ENABLED = os.getenv("S3_AUTO_BACKUP_ENABLED", "false").lower() == "true"
 	S3_AUTO_BACKUP_MIN_INTERVAL_SEC = int(os.getenv("S3_AUTO_BACKUP_MIN_INTERVAL_SEC", "0"))
-	S3_SNAPSHOT_RETENTION = int(os.getenv("S3_SNAPSHOT_RETENTION", "5"))
+	S3_SNAPSHOT_RETENTION = int(os.getenv("S3_SNAPSHOT_RETENTION", "1"))
 	S3_SQLITE_SNAPSHOT_ENABLED = os.getenv("S3_SQLITE_SNAPSHOT_ENABLED", "false").lower() == "true"
 	S3_SQLITE_SNAPSHOT_RETENTION = int(os.getenv("S3_SQLITE_SNAPSHOT_RETENTION", "1"))
 
