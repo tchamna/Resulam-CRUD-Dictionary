@@ -28,21 +28,26 @@ def hash_password(password: str) -> str:
 def verify_password(password: str, password_hash: str) -> bool:
 	return pwd_context.verify(_normalize_password(password), password_hash)
 
-def _create_token(subject: str, token_type: str, expires_delta: timedelta) -> str:
+def _create_token(subject: str, token_type: str, expires_delta: Optional[timedelta]) -> str:
 	now = datetime.utcnow()
 	payload = {
 		"sub": subject,
 		"type": token_type,  # "access" or "refresh"
 		"iat": int(now.timestamp()),
-		"exp": int((now + expires_delta).timestamp()),
 	}
+	if expires_delta and expires_delta.total_seconds() > 0:
+		payload["exp"] = int((now + expires_delta).timestamp())
 	return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALG)
 
 def create_access_token(email: str) -> str:
-	return _create_token(email, "access", timedelta(minutes=settings.ACCESS_TOKEN_EXPIRES_MIN))
+	expires = settings.ACCESS_TOKEN_EXPIRES_MIN
+	delta = None if expires <= 0 else timedelta(minutes=expires)
+	return _create_token(email, "access", delta)
 
 def create_refresh_token(email: str) -> str:
-	return _create_token(email, "refresh", timedelta(days=settings.REFRESH_TOKEN_EXPIRES_DAYS))
+	expires = settings.REFRESH_TOKEN_EXPIRES_DAYS
+	delta = None if expires <= 0 else timedelta(days=expires)
+	return _create_token(email, "refresh", delta)
 
 def decode_token(token: str) -> dict:
 	return jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALG])

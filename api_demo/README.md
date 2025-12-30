@@ -79,8 +79,8 @@ to avoid iptables REJECT rules on 80/443.
 Environment variables (defaults shown):
 - `DATABASE_URL=sqlite:///./app.db`
 - `JWT_SECRET=dev-secret-change-me`
-- `ACCESS_TOKEN_EXPIRES_MIN=30`
-- `REFRESH_TOKEN_EXPIRES_DAYS=14`
+- `ACCESS_TOKEN_EXPIRES_MIN=30` (set `0` to disable expiry)
+- `REFRESH_TOKEN_EXPIRES_DAYS=14` (set `0` to disable expiry)
 - `SUPER_ADMIN_EMAIL=superadmin@example.com`
 - `SUPER_ADMIN_PASSWORD=superadmin`
 - `WORD_LIST_PATH=nufi_word_list.txt`
