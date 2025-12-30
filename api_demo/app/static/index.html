@@ -130,7 +130,7 @@
             <input id="language-id" type="hidden" name="language_id" />
             <div id="language-dropdown" class="dropdown"></div>
           </div>
-          <label>Search (word contains)<input name="search" type="text" data-clafrica="true" /></label>
+          <label>Search<input name="search" type="text" data-clafrica="true" /></label>
           <label>Status
             <select name="status">
               <option value="all" selected>All words</option>
@@ -139,6 +139,7 @@
             </select>
           </label>
           <div class="inline">
+            <label><input name="exact" type="checkbox" value="true"> Exact match</label>
             <label>Limit<input name="limit" type="number" value="50" min="1" max="200" /></label>
           </div>
           <button type="submit">Fetch words</button>
@@ -147,7 +148,7 @@
           <h3>Suggestions</h3>
           <p class="hint">Random undefined words to define right away.</p>
           <input id="random-language-id" type="hidden" name="language_id" />
-          <label>Count<input name="limit" type="number" value="10" min="1" max="50" /></label>
+          <input type="hidden" name="limit" value="10" />
           <button id="random-submit" type="submit" class="ghost">Show 10 random words</button>
         </form>
         <div id="dictionary-result" class="result"></div>
@@ -158,8 +159,8 @@
           <label><span id="label-definition">Definitions</span><textarea id="definition-textarea" name="definition" rows="4" required data-clafrica="true" spellcheck="false"></textarea></label>
           <label><span id="label-examples">Examples</span><textarea name="examples" rows="3" data-clafrica="true"></textarea></label>
           <label><span id="label-synonyms">Syn.</span><input name="synonyms" type="text" data-clafrica="true"></label>
-          <label><span id="label-translation-fr">Traduction en Francais</span><textarea name="translation_fr" rows="2" data-clafrica="true"></textarea></label>
-          <label><span id="label-translation-en">Translation in English</span><textarea name="translation_en" rows="2" data-clafrica="true"></textarea></label>
+          <label><span id="label-translation-fr">Traduction en Francais</span><textarea name="translation_fr" rows="2"></textarea></label>
+          <label><span id="label-translation-en">Translation in English</span><textarea name="translation_en" rows="2"></textarea></label>
           <button type="submit">Save definition</button>
         </form>
         <div id="definition-result" class="result"></div>

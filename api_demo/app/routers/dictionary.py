@@ -19,6 +19,7 @@ router = APIRouter(prefix="/dictionary", tags=["dictionary"])
 def list_words(
 	language_id: int = Query(..., ge=1),
 	search: str | None = None,
+	exact: bool = Query(False),
 	status: str = Query("all", pattern="^(all|defined|undefined)$"),
 	limit: int = Query(50, ge=1, le=200),
 	offset: int = Query(0, ge=0),
@@ -27,7 +28,11 @@ def list_words(
 	query = db.query(Word, User.email).outerjoin(User, Word.updated_by_id == User.id)
 	query = query.filter(Word.language_id == language_id)
 	if search:
-		query = query.filter(func.lower(Word.word).like(f"%{search.lower()}%"))
+		search_value = search.lower()
+		if exact:
+			query = query.filter(func.lower(Word.word) == search_value)
+		else:
+			query = query.filter(func.lower(Word.word).like(f"%{search_value}%"))
 	if status == "defined":
 		query = query.filter(Word.definition.is_not(None)).filter(Word.definition != "")
 	elif status == "undefined":
