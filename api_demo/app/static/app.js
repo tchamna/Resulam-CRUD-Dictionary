@@ -418,21 +418,23 @@ function findLanguageMatch(value) {
 function getDictionaryLabels() {
   if (currentLanguageKey === "nufi") {
     return {
-      title: "Ŋwɑ̀'nǐpàhsì",
-      needsDefinition: "Pō yǎt sì pàhsì",
-      defined: "Pàhsì",
-      define: "Pàhsì",
-      edit: "Cōp pàhsì",
-      wordLabel: "Njâ'wū",
-      definitionLabel: "Pàhsì",
-      examplesLabel: "Mfóhnì",
-      synonymsLabel: "Fóhmbʉ̄ɑ̄",
-      translationFrLabel: "Fāhngə́ə́ mɑ̀ Flàŋsī",
-      translationEnLabel: "Fāhngə́ə́ mɑ̀ Nglǐsì",
+      title: "??w????'n??p??hs??",
+      allWords: "nkw?? nj?'z?",
+      needsDefinition: "P? y?t si pahsi",
+      defined: "P? y?' pahsi",
+      define: "P??hs??",
+      edit: "C??p p??hs??",
+      wordLabel: "Nj??'w??",
+      definitionLabel: "P??hs??",
+      examplesLabel: "Mf??hn??",
+      synonymsLabel: "F??hmb????????",
+      translationFrLabel: "F??hng???????? m???? Fl????s??",
+      translationEnLabel: "F??hng???????? m???? Ngl??s??",
     };
   }
   return {
     title: "Dictionary",
+    allWords: "All words",
     needsDefinition: "needs definition",
     defined: "defined",
     define: "Define",
@@ -458,6 +460,17 @@ function updateDictionaryLabels() {
   if (labelSynonyms) labelSynonyms.textContent = labels.synonymsLabel;
   if (labelTranslationFr) labelTranslationFr.textContent = labels.translationFrLabel;
   if (labelTranslationEn) labelTranslationEn.textContent = labels.translationEnLabel;
+  const statusSelect = document.querySelector(
+    'form[data-endpoint="/dictionary"][data-method="GET"] select[name="status"]'
+  );
+  if (statusSelect) {
+    const allOption = statusSelect.querySelector('option[value="all"]');
+    const undefinedOption = statusSelect.querySelector('option[value="undefined"]');
+    const definedOption = statusSelect.querySelector('option[value="defined"]');
+    if (allOption) allOption.textContent = labels.allWords || "All words";
+    if (undefinedOption) undefinedOption.textContent = labels.needsDefinition;
+    if (definedOption) definedOption.textContent = labels.defined;
+  }
 }
 
 function setLanguage(row) {
