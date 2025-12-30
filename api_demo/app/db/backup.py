@@ -56,10 +56,11 @@ def _upload_database_backup(reason: str) -> None:
 			_upload_to_s3(tmp_path, object_name)
 	else:
 		db_name = url.database or "database"
+		pg_url = _normalize_pg_url(url)
 		object_name = f"{prefix}/{db_name}-{timestamp}.sql"
 		with tempfile.TemporaryDirectory() as temp_dir:
 			tmp_path = Path(temp_dir) / f"{db_name}-{timestamp}.sql"
-			_dump_postgres(tmp_path)
+			_dump_postgres(tmp_path, pg_url)
 			_upload_to_s3(tmp_path, object_name)
 
 	log_event("s3_backup_complete", reason=reason, object_key=object_name)
@@ -76,10 +77,10 @@ def _write_sqlite_backup(source_path: Path, dest_path: Path) -> None:
 		source_conn.close()
 
 
-def _dump_postgres(dest_path: Path) -> None:
+def _dump_postgres(dest_path: Path, url) -> None:
 	with dest_path.open("wb") as handle:
 		result = subprocess.run(
-			["pg_dump", settings.DATABASE_URL],
+			["pg_dump", str(url)],
 			check=False,
 			stdout=handle,
 			stderr=subprocess.PIPE,
@@ -98,3 +99,12 @@ def _upload_to_s3(local_path: Path, object_key: str) -> None:
 	)
 	if result.returncode != 0:
 		raise RuntimeError(result.stderr.decode("utf-8", errors="replace"))
+
+
+def _normalize_pg_url(url):
+	driver = url.drivername or ""
+	if "+" in driver:
+		driver = driver.split("+", 1)[0]
+	if driver and driver != url.drivername:
+		return url.set(drivername=driver)
+	return url
