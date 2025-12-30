@@ -1,3 +1,4 @@
+import json
 import sqlite3
 import subprocess
 import tempfile
@@ -49,7 +50,8 @@ def _upload_database_backup(reason: str) -> None:
 			source_path = (Path.cwd() / source_path).resolve()
 		if not source_path.exists():
 			raise FileNotFoundError(f"SQLite file not found: {source_path}")
-		object_name = f"{prefix}/{source_path.stem}-{timestamp}.db"
+		base_name = source_path.stem
+		object_name = f"{prefix}/{base_name}-{timestamp}.db"
 		with tempfile.TemporaryDirectory() as temp_dir:
 			tmp_path = Path(temp_dir) / f"{source_path.stem}-{timestamp}.db"
 			_write_sqlite_backup(source_path, tmp_path)
@@ -57,13 +59,15 @@ def _upload_database_backup(reason: str) -> None:
 	else:
 		db_name = url.database or "database"
 		pg_url = _normalize_pg_url(url)
-		object_name = f"{prefix}/{db_name}-{timestamp}.sql"
+		base_name = db_name
+		object_name = f"{prefix}/{base_name}-{timestamp}.sql"
 		with tempfile.TemporaryDirectory() as temp_dir:
 			tmp_path = Path(temp_dir) / f"{db_name}-{timestamp}.sql"
 			_dump_postgres(tmp_path, pg_url)
 			_upload_to_s3(tmp_path, object_name)
 
 	log_event("s3_backup_complete", reason=reason, object_key=object_name)
+	_cleanup_old_backups(prefix, base_name, settings.S3_SNAPSHOT_RETENTION)
 
 
 def _write_sqlite_backup(source_path: Path, dest_path: Path) -> None:
@@ -112,3 +116,62 @@ def _normalize_pg_url(url):
 	if driver and driver != url.drivername:
 		return url.set(drivername=driver)
 	return url
+
+
+def _cleanup_old_backups(prefix: str, base_name: str, retention: int) -> None:
+	if retention <= 0:
+		return
+
+	list_prefix = f"{prefix}/{base_name}-"
+	result = subprocess.run(
+		[
+			"aws",
+			"s3api",
+			"list-objects-v2",
+			"--bucket",
+			settings.S3_BUCKET,
+			"--prefix",
+			list_prefix,
+		],
+		check=False,
+		stdout=subprocess.PIPE,
+		stderr=subprocess.PIPE,
+	)
+	if result.returncode != 0:
+		log_event(
+			"s3_backup_cleanup_failed",
+			error=result.stderr.decode("utf-8", errors="replace"),
+		)
+		return
+
+	payload = json.loads(result.stdout.decode("utf-8") or "{}")
+	contents = payload.get("Contents", [])
+	if len(contents) <= retention:
+		return
+
+	contents.sort(key=lambda item: item.get("LastModified", ""))
+	to_delete = contents[:-retention]
+	delete_payload = {"Objects": [{"Key": item["Key"]} for item in to_delete], "Quiet": True}
+
+	delete_result = subprocess.run(
+		[
+			"aws",
+			"s3api",
+			"delete-objects",
+			"--bucket",
+			settings.S3_BUCKET,
+			"--delete",
+			json.dumps(delete_payload),
+		],
+		check=False,
+		stdout=subprocess.PIPE,
+		stderr=subprocess.PIPE,
+	)
+	if delete_result.returncode != 0:
+		log_event(
+			"s3_backup_cleanup_failed",
+			error=delete_result.stderr.decode("utf-8", errors="replace"),
+		)
+		return
+
+	log_event("s3_backup_pruned", removed=len(to_delete), remaining=retention)
