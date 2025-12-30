@@ -31,4 +31,9 @@ class Settings:
 	GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 	GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "")
 
+	S3_BUCKET = os.getenv("S3_BUCKET", "")
+	S3_PREFIX = os.getenv("S3_PREFIX", "backups")
+	S3_AUTO_BACKUP_ENABLED = os.getenv("S3_AUTO_BACKUP_ENABLED", "false").lower() == "true"
+	S3_AUTO_BACKUP_MIN_INTERVAL_SEC = int(os.getenv("S3_AUTO_BACKUP_MIN_INTERVAL_SEC", "0"))
+
 settings = Settings()

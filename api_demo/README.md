@@ -94,6 +94,10 @@ Environment variables (defaults shown):
 - `GOOGLE_CLIENT_ID=`
 - `GOOGLE_CLIENT_SECRET=`
 - `GOOGLE_REDIRECT_URI=`
+- `S3_BUCKET=` (required for S3 backups)
+- `S3_PREFIX=backups`
+- `S3_AUTO_BACKUP_ENABLED=false`
+- `S3_AUTO_BACKUP_MIN_INTERVAL_SEC=0`
 
 ## Super admin
 On startup, the app creates (or updates) a super admin account using the env vars above.
@@ -138,6 +142,11 @@ docker compose -f api_demo/docker-compose.yml exec -T db wal-g backup-fetch /var
 3) Set `recovery_target_time` (or other target) in `postgresql.conf`, then start db.
 
 Note: Use WAL-G + periodic base backups for professional-grade recovery.
+
+## Automatic S3 backups on writes
+When `S3_AUTO_BACKUP_ENABLED=true`, each DB commit that changes data triggers a full
+backup to S3. SQLite uses a consistent file backup; Postgres uses `pg_dump`. This
+requires the AWS CLI and (for Postgres) `pg_dump` to be available in the runtime.
 
 ## Migrations (Postgres)
 ```bash
