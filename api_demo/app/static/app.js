@@ -107,7 +107,7 @@ function appendLog(title, payload) {
   logEl.textContent = line + logEl.textContent;
 }
 
-async function apiRequest({ endpoint, method, body, auth }) {
+async function apiRequest({ endpoint, method, body, auth, retryOnUnauthorized = true }) {
   const headers = { "Content-Type": "application/json" };
   if (auth && tokenStore.access) {
     headers.Authorization = `Bearer ${tokenStore.access}`;
@@ -125,6 +125,27 @@ async function apiRequest({ endpoint, method, body, auth }) {
     data = text ? JSON.parse(text) : { status: "OK" };
   } catch {
     data = { raw: text };
+  }
+
+  if (
+    response.status === 401 &&
+    auth &&
+    retryOnUnauthorized &&
+    tokenStore.refresh &&
+    endpoint !== "/auth/refresh"
+  ) {
+    const refresh = await fetch(baseUrl + "/auth/refresh", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: tokenStore.refresh }),
+    });
+    if (refresh.ok) {
+      const refreshData = await refresh.json().catch(() => ({}));
+      if (refreshData.access_token) {
+        setTokens(refreshData.access_token, refreshData.refresh_token || tokenStore.refresh);
+        return apiRequest({ endpoint, method, body, auth, retryOnUnauthorized: false });
+      }
+    }
   }
 
   return { status: response.status, ok: response.ok, data };
