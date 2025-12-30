@@ -36,6 +36,8 @@ jobs:
           REPO_URL: https://github.com/${{ github.repository }}.git
           DATABASE_URL: ${{ secrets.DATABASE_URL || vars.DATABASE_URL }}
           JWT_SECRET: ${{ secrets.JWT_SECRET || vars.JWT_SECRET }}
+          ACCESS_TOKEN_EXPIRES_MIN: ${{ secrets.ACCESS_TOKEN_EXPIRES_MIN || vars.ACCESS_TOKEN_EXPIRES_MIN || '0' }}
+          REFRESH_TOKEN_EXPIRES_DAYS: ${{ secrets.REFRESH_TOKEN_EXPIRES_DAYS || vars.REFRESH_TOKEN_EXPIRES_DAYS || '0' }}
           SUPER_ADMIN_EMAIL: ${{ secrets.SUPER_ADMIN_EMAIL || vars.SUPER_ADMIN_EMAIL }}
           SUPER_ADMIN_PASSWORD: ${{ secrets.SUPER_ADMIN_PASSWORD || vars.SUPER_ADMIN_PASSWORD }}
           WORD_LIST_PATH: ${{ secrets.WORD_LIST_PATH || vars.WORD_LIST_PATH || 'nufi_word_list.txt' }}
@@ -68,6 +70,8 @@ jobs:
           cat > "$env_file" <<EOF
           DATABASE_URL=$DATABASE_URL
           JWT_SECRET=$JWT_SECRET
+          ACCESS_TOKEN_EXPIRES_MIN=$ACCESS_TOKEN_EXPIRES_MIN
+          REFRESH_TOKEN_EXPIRES_DAYS=$REFRESH_TOKEN_EXPIRES_DAYS
           SUPER_ADMIN_EMAIL=$SUPER_ADMIN_EMAIL
           SUPER_ADMIN_PASSWORD=$SUPER_ADMIN_PASSWORD
           WORD_LIST_PATH=$WORD_LIST_PATH
