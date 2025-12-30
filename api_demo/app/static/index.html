@@ -147,9 +147,9 @@
         <form id="random-words-form" data-endpoint="/dictionary/random" data-method="GET" data-auth="true" data-result-target="dictionary-result">
           <h3>Suggestions</h3>
           <p class="hint">Random undefined words to define right away.</p>
+          <p id="random-count-label" class="hint">Showing 10 random words.</p>
           <input id="random-language-id" type="hidden" name="language_id" />
           <input type="hidden" name="limit" value="10" />
-          <button id="random-submit" type="submit" class="ghost">Show 10 random words</button>
         </form>
         <div id="dictionary-result" class="result"></div>
         <form id="definition-form" data-endpoint="/dictionary/:id" data-method="PUT" data-auth="true" data-result-target="definition-result">
