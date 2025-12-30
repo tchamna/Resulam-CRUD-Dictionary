@@ -50,6 +50,15 @@ let clafricaKeys = [];
 let clafricaMaxKeyLen = 0;
 let clafricaPrefixes = new Set();
 
+function getRequestedLimit() {
+  const limitInput = document.getElementById("dictionary-limit");
+  const rawValue = limitInput ? parseInt(limitInput.value, 10) : NaN;
+  if (!Number.isFinite(rawValue) || rawValue < 1) {
+    return 10;
+  }
+  return Math.min(rawValue, 200);
+}
+
 function getPreferredAuthTab() {
   const adminRoute = window.location.pathname.startsWith("/admin");
   if (adminRoute) {
@@ -514,9 +523,10 @@ async function fetchRandomWords() {
   }
   lastListMode = "random";
   lastRandomLanguageId = languageIdInput.value;
+  const limit = getRequestedLimit();
   try {
     const res = await apiRequest({
-      endpoint: `/dictionary/random?language_id=${languageIdInput.value}&limit=10`,
+      endpoint: `/dictionary/random?language_id=${languageIdInput.value}&limit=${limit}`,
       method: "GET",
       auth: true,
     });
@@ -1202,16 +1212,34 @@ if (randomForm) {
   const countInput = randomForm.querySelector('input[name="limit"]');
   const limitInput = document.getElementById("dictionary-limit");
   const submitButton = document.getElementById("random-submit");
+  let randomRefreshTimer = null;
+  const scheduleRandomRefresh = () => {
+    if (!randomLanguageId || !randomLanguageId.value) {
+      return;
+    }
+    if (randomRefreshTimer) {
+      clearTimeout(randomRefreshTimer);
+    }
+    randomRefreshTimer = setTimeout(() => {
+      if (!randomLanguageId.value) {
+        return;
+      }
+      if (typeof randomForm.requestSubmit === "function") {
+        randomForm.requestSubmit();
+      } else {
+        randomForm.dispatchEvent(new Event("submit", { cancelable: true }));
+      }
+    }, 400);
+  };
   const updateRandomLabel = () => {
-    const rawValue = limitInput ? parseInt(limitInput.value, 10) : parseInt(countInput?.value, 10);
-    const safeValue = Number.isFinite(rawValue) && rawValue > 0 ? rawValue : 10;
-    const boundedValue = Math.min(Math.max(safeValue, 1), 200);
+    const boundedValue = getRequestedLimit();
     if (countInput) {
       countInput.value = String(boundedValue);
     }
     if (submitButton) {
       submitButton.textContent = `Show ${boundedValue} random words`;
     }
+    scheduleRandomRefresh();
   };
   if (limitInput) {
     limitInput.addEventListener("input", updateRandomLabel);

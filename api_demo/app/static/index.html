@@ -164,14 +164,14 @@
           <button type="submit">Save definition</button>
         </form>
         <div id="definition-result" class="result"></div>
-        <form data-endpoint="/dictionary/reseed" data-method="POST" data-auth="true" data-result-target="reseed-result">
+        <form data-endpoint="/dictionary/reseed" data-method="POST" data-auth="true" data-result-target="reseed-result" class="is-hidden">
           <h3>Reseed word list (Admin)</h3>
           <p class="hint">Clears existing words and reloads from the word list file.</p>
           <input id="reseed-language-id" type="hidden" name="language_id" />
           <input type="hidden" name="confirm" value="true" />
           <button type="submit" class="ghost">Reseed words</button>
         </form>
-        <div id="reseed-result" class="result"></div>
+        <div id="reseed-result" class="result is-hidden"></div>
       </div>
     </section>
 
