@@ -1197,21 +1197,27 @@ if (logoutButton) {
   });
 }
 
-const randomForm = document.querySelector('form[data-endpoint="/dictionary/random"]');
+const randomForm = document.getElementById("random-words-form");
 if (randomForm) {
   const countInput = randomForm.querySelector('input[name="limit"]');
+  const limitInput = document.getElementById("dictionary-limit");
   const submitButton = document.getElementById("random-submit");
   const updateRandomLabel = () => {
-    const value = countInput ? parseInt(countInput.value, 10) : 10;
-    const safeValue = Number.isFinite(value) && value > 0 ? value : 10;
+    const rawValue = limitInput ? parseInt(limitInput.value, 10) : parseInt(countInput?.value, 10);
+    const safeValue = Number.isFinite(rawValue) && rawValue > 0 ? rawValue : 10;
+    const boundedValue = Math.min(Math.max(safeValue, 1), 200);
+    if (countInput) {
+      countInput.value = String(boundedValue);
+    }
     if (submitButton) {
-      submitButton.textContent = `Show ${safeValue} random words`;
+      submitButton.textContent = `Show ${boundedValue} random words`;
     }
   };
-  if (countInput) {
-    countInput.addEventListener("input", updateRandomLabel);
-    updateRandomLabel();
+  if (limitInput) {
+    limitInput.addEventListener("input", updateRandomLabel);
+    limitInput.addEventListener("change", updateRandomLabel);
   }
+  updateRandomLabel();
 }
 
 const dictionaryForm = document.querySelector('form[data-endpoint="/dictionary"][data-method="GET"]');

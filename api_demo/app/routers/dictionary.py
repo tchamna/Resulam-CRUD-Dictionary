@@ -59,7 +59,7 @@ def list_words(
 @router.get("/random")
 def random_words(
 	language_id: int = Query(..., ge=1),
-	limit: int = Query(10, ge=1, le=50),
+	limit: int = Query(10, ge=1, le=200),
 	db: Session = Depends(get_db),
 ):
 	query = (
