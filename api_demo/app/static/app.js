@@ -107,11 +107,15 @@ function showToast(message, anchor) {
 }
 
 function focusRandomWords() {
-  const randomForm = document.querySelector('form[data-endpoint="/dictionary/random"]');
+  const randomForm =
+    document.getElementById("random-words-form") ||
+    document.querySelector('form[data-endpoint="/dictionary/random"]');
   if (!randomForm) {
     return;
   }
-  randomForm.scrollIntoView({ behavior: "smooth", block: "start" });
+  window.requestAnimationFrame(() => {
+    randomForm.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
   const submitButton = document.getElementById("random-submit");
   if (submitButton) {
     submitButton.focus();
