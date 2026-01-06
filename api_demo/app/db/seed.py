@@ -44,22 +44,24 @@ def seed_words(db: Session, word_list_path: Path, language: Language, force: boo
 	"""Seed both WordEntry (new) and Word (legacy) tables with lemmas from word list."""
 	if not word_list_path.exists():
 		return 0
+
+	language_id = language.id
 	
 	existing_words: Set[str] = set()
 	existing_entries: Set[str] = set()
 	
 	if force:
-		db.query(Word).filter(Word.language_id == language.id).delete()
-		db.query(WordEntry).filter(WordEntry.language_id == language.id).delete()
+		db.query(Word).filter(Word.language_id == language_id).delete()
+		db.query(WordEntry).filter(WordEntry.language_id == language_id).delete()
 		db.commit()
 	else:
 		existing_words = {
 			row[0]
-			for row in db.query(Word.word).filter(Word.language_id == language.id).all()
+			for row in db.query(Word.word).filter(Word.language_id == language_id).all()
 		}
 		existing_entries = {
 			row[0]
-			for row in db.query(WordEntry.lemma_nfc).filter(WordEntry.language_id == language.id).all()
+			for row in db.query(WordEntry.lemma_nfc).filter(WordEntry.language_id == language_id).all()
 		}
 	
 	seen: Set[str] = set()
@@ -85,7 +87,7 @@ def seed_words(db: Session, word_list_path: Path, language: Language, force: boo
 	# Bulk insert legacy Word entries (for existing UI)
 	if words_to_add:
 		word_objects = [
-			Word(language_id=language.id, word=w, definition=None)
+			Word(language_id=language_id, word=w, definition=None)
 			for w in words_to_add
 		]
 		db.bulk_save_objects(word_objects)
@@ -96,7 +98,7 @@ def seed_words(db: Session, word_list_path: Path, language: Language, force: boo
 	batch_count = 0
 	for lemma_raw, lemma_nfc in entries_to_add:
 		word_entry = WordEntry(
-			language_id=language.id,
+			language_id=language_id,
 			lemma_raw=lemma_raw,
 			lemma_nfc=lemma_nfc,
 			status="draft"
