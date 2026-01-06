@@ -1284,6 +1284,7 @@ const DictionaryApp = () => {
       nextRow = fetched[0];
     }
     await applyRandomWord(nextRow);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const saveEntry = async (options = {}) => {
