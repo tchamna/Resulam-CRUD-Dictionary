@@ -1,7 +1,10 @@
-﻿const { useState, useEffect, useRef } = React;
+﻿import { useState, useEffect, useRef } from 'react';
+import { createRoot } from 'react-dom/client';
 
 const STORAGE_KEY = 'temporary_ui_entry_v1';
 const TOKEN_KEY = 'temporary_ui_access_token';
+const REFRESH_KEY = 'temporary_ui_refresh_token';
+const ONBOARDING_KEY = 'temporary_ui_onboarding_done';
 const charKeys = ['A-', 'A~', 'A>', 'EZ', 'N>I?', 'N"I?', 'N<', 'E?', 'E%'];
 const POS_OPTIONS = [
   { value: '', label: 'Select POS...' },
@@ -25,6 +28,8 @@ const TRANSLATION_LANGS = [
 ];
 
 const DEFAULT_RANDOM_LIMIT = 10;
+const PASSWORD_RULES_TEXT = 'Password must be at least 5 characters and include a letter and a number.';
+const AUTO_SAVE_IDLE_MS = 3 * 60 * 1000;
 
 const createSense = () => ({
   pos: '',
@@ -215,8 +220,10 @@ const styles = {
     color: '#1b1f2a',
     padding: '24px',
     display: 'grid',
-    gridTemplateColumns: '320px minmax(360px, 1.1fr) minmax(260px, 0.9fr)',
-    gap: '24px'
+    gridTemplateColumns: '260px minmax(460px, 1.2fr) minmax(260px, 0.9fr)',
+    gap: '24px',
+    alignItems: 'stretch',
+    alignContent: 'stretch'
   },
   leftMenu: {
     background: 'rgba(248,250,252,0.98)',
@@ -224,10 +231,37 @@ const styles = {
     padding: '18px',
     border: '1px solid rgba(23,26,34,0.12)',
     boxShadow: '0 16px 30px rgba(16,20,30,0.12)',
-    height: 'fit-content',
-    maxHeight: 'calc(100vh - 80px)',
+    minHeight: '100%',
+    overflow: 'hidden',
+    boxSizing: 'border-box',
+    display: 'flex',
+    flexDirection: 'column',
+    alignSelf: 'stretch'
+  },
+  leftMenuCollapsed: {
+    padding: '10px 6px',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  leftMenuBody: {
+    flex: '0 0 auto',
     overflowY: 'auto',
-    boxSizing: 'border-box'
+    display: 'grid',
+    gap: '14px',
+    paddingRight: '4px',
+    alignContent: 'start'
+  },
+  leftMenuFooter: {
+    marginTop: '12px'
+  },
+  leftMenuCollapsedLabel: {
+    writingMode: 'vertical-rl',
+    transform: 'rotate(180deg)',
+    fontWeight: '600',
+    letterSpacing: '0.08em',
+    textTransform: 'uppercase',
+    fontSize: '12px',
+    color: '#475569'
   },
   formSide: { flex: 1 },
   previewSide: { position: 'sticky', top: '20px', height: 'fit-content' },
@@ -402,6 +436,59 @@ const styles = {
     fontSize: '13px',
     color: '#475569',
     marginTop: '8px'
+  },
+  emptyState: {
+    border: '1px dashed rgba(23,26,34,0.18)',
+    background: 'rgba(245,246,248,0.9)',
+    borderRadius: '12px',
+    padding: '10px 12px',
+    fontSize: '13px',
+    color: '#64748b',
+    marginTop: '10px'
+  },
+  topBar: {
+    background: 'rgba(255,255,255,0.92)',
+    borderRadius: '16px',
+    padding: '12px 16px',
+    border: '1px solid rgba(23,26,34,0.12)',
+    boxShadow: '0 16px 30px rgba(16,20,30,0.12)',
+    marginBottom: '20px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '12px'
+  },
+  topBarGroup: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    flexWrap: 'wrap'
+  },
+  onboardingWrap: {
+    minHeight: '100vh',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '32px'
+  },
+  onboardingCard: {
+    width: 'min(520px, 100%)',
+    background: 'rgba(255,255,255,0.94)',
+    borderRadius: '18px',
+    padding: '28px',
+    border: '1px solid rgba(23,26,34,0.12)',
+    boxShadow: '0 20px 40px rgba(16,20,30,0.15)',
+    boxSizing: 'border-box'
+  },
+  onboardingTitle: {
+    fontFamily: '"Fraunces", serif',
+    fontSize: '26px',
+    margin: '0 0 8px'
+  },
+  onboardingText: {
+    color: '#475569',
+    fontSize: '14px',
+    marginBottom: '18px'
   }
 };
 
@@ -418,6 +505,19 @@ const DictionaryApp = () => {
   const [accessToken, setAccessToken] = useState(() => {
     return localStorage.getItem(TOKEN_KEY) || localStorage.getItem('access_token') || '';
   });
+  const [refreshToken, setRefreshToken] = useState(() => {
+    return localStorage.getItem(REFRESH_KEY) || localStorage.getItem('refresh_token') || '';
+  });
+  const [currentUserEmail, setCurrentUserEmail] = useState('');
+  const [authMode, setAuthMode] = useState('login');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authConfirm, setAuthConfirm] = useState('');
+  const [authStatus, setAuthStatus] = useState('');
+  const [authBusy, setAuthBusy] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    return localStorage.getItem(ONBOARDING_KEY) !== 'true';
+  });
   const [saveStatus, setSaveStatus] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [lastFocused, setLastFocused] = useState(null);
@@ -432,12 +532,18 @@ const DictionaryApp = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState('');
+  const [languageHasEntries, setLanguageHasEntries] = useState(null);
   const [exactMatch, setExactMatch] = useState(false);
+  const [leftMenuCollapsed, setLeftMenuCollapsed] = useState(false);
   const [clafricaEnabled, setClafricaEnabled] = useState(true);
   const [clafricaStatus, setClafricaStatus] = useState('');
+  const [leftMenuMinHeight, setLeftMenuMinHeight] = useState(null);
   const clafricaMapRef = useRef({});
   const clafricaMaxLenRef = useRef(0);
   const clafricaPrefixesRef = useRef(new Set());
+  const formSideRef = useRef(null);
+  const autoSaveTimerRef = useRef(null);
+  const dirtyRef = useRef(false);
 
   useEffect(() => {
     try {
@@ -450,8 +556,22 @@ const DictionaryApp = () => {
   useEffect(() => {
     if (accessToken) {
       localStorage.setItem(TOKEN_KEY, accessToken);
+      localStorage.setItem('access_token', accessToken);
+    } else {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem('access_token');
     }
   }, [accessToken]);
+
+  useEffect(() => {
+    if (refreshToken) {
+      localStorage.setItem(REFRESH_KEY, refreshToken);
+      localStorage.setItem('refresh_token', refreshToken);
+    } else {
+      localStorage.removeItem(REFRESH_KEY);
+      localStorage.removeItem('refresh_token');
+    }
+  }, [refreshToken]);
 
   useEffect(() => {
     fetch('/dictionary/clafrica-map')
@@ -478,6 +598,64 @@ const DictionaryApp = () => {
       });
   }, []);
 
+  const loadCurrentUser = async (token) => {
+    if (!token) {
+      setCurrentUserEmail('');
+      return;
+    }
+    try {
+      const response = await fetch('/users/me', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await response.json().catch(() => null);
+      if (response.ok && data?.email) {
+        setCurrentUserEmail(data.email);
+      } else {
+        setCurrentUserEmail('');
+      }
+    } catch {
+      setCurrentUserEmail('');
+    }
+  };
+
+  useEffect(() => {
+    loadCurrentUser(accessToken);
+  }, [accessToken]);
+
+  const markOnboardingDone = () => {
+    localStorage.setItem(ONBOARDING_KEY, 'true');
+    setShowOnboarding(false);
+  };
+
+  const openOnboarding = () => {
+    setShowOnboarding(true);
+  };
+
+  const clearAutoSaveTimer = () => {
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
+  };
+
+  const scheduleAutoSave = () => {
+    clearAutoSaveTimer();
+    autoSaveTimerRef.current = setTimeout(async () => {
+      if (!dirtyRef.current || isSaving) {
+        return;
+      }
+      const saved = await saveEntry({ auto: true });
+      if (saved) {
+        await goToNextRandomSuggestion();
+      }
+    }, AUTO_SAVE_IDLE_MS);
+  };
+
+  const markDirty = () => {
+    dirtyRef.current = true;
+    scheduleAutoSave();
+  };
+
   const resolveRandomLimit = (value) => {
     const rawValue = parseInt(value, 10);
     if (!Number.isFinite(rawValue) || rawValue < 1) {
@@ -498,7 +676,7 @@ const DictionaryApp = () => {
     if (!entry.languageId) {
       setRandomError('Select a language to load suggestions.');
       setRandomWords([]);
-      return;
+      return [];
     }
     const limit = resolveRandomLimit(limitOverride ?? randomLimit);
     setRandomLoading(true);
@@ -510,14 +688,18 @@ const DictionaryApp = () => {
         const detail = data?.detail || `Error ${response.status}.`;
         setRandomError(detail);
         setRandomWords([]);
+        return [];
       } else if (Array.isArray(data)) {
         setRandomWords(data);
+        return data;
       } else {
         setRandomWords([]);
+        return [];
       }
     } catch (error) {
       setRandomError(error?.message || 'Failed to load suggestions.');
       setRandomWords([]);
+      return [];
     } finally {
       setRandomLoading(false);
     }
@@ -541,10 +723,32 @@ const DictionaryApp = () => {
 
   useEffect(() => {
     if (entry.languageId) {
+      setLanguageHasEntries(null);
       fetchRandomWords();
       fetchWordEntries();
     }
   }, [entry.languageId]);
+
+  useEffect(() => {
+    if (!formSideRef.current || typeof ResizeObserver === 'undefined') {
+      return;
+    }
+    const updateHeight = () => {
+      if (!formSideRef.current) return;
+      const height = formSideRef.current.getBoundingClientRect().height;
+      if (height && Math.abs((leftMenuMinHeight || 0) - height) > 1) {
+        setLeftMenuMinHeight(height);
+      }
+    };
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(formSideRef.current);
+    updateHeight();
+    window.addEventListener('resize', updateHeight);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', updateHeight);
+    };
+  }, [leftMenuCollapsed, leftMenuMinHeight]);
 
   const fetchWordEntries = async (options = {}) => {
     if (!entry.languageId) {
@@ -561,8 +765,9 @@ const DictionaryApp = () => {
       offset: '0'
     });
     const termValue = options.term ?? searchTerm;
-    if (termValue && termValue.trim()) {
-      params.set('search', termValue.trim());
+    const trimmedTerm = termValue ? termValue.trim() : '';
+    if (trimmedTerm) {
+      params.set('search', trimmedTerm);
     }
     const statusValue = options.status ?? searchStatus;
     if (statusValue && statusValue !== 'all') {
@@ -575,19 +780,25 @@ const DictionaryApp = () => {
         const detail = data?.detail || `Error ${response.status}.`;
         setSearchError(detail);
         setSearchResults([]);
+        setLanguageHasEntries(null);
       } else if (Array.isArray(data)) {
         let list = data;
-        const term = (options.term ?? searchTerm).trim();
+        const term = trimmedTerm;
         if (exactMatch && term) {
           list = list.filter((row) => row && row.lemma_raw === term);
         }
         setSearchResults(list);
+        if (!term && (statusValue === 'all')) {
+          setLanguageHasEntries(list.length > 0);
+        }
       } else {
         setSearchResults([]);
+        setLanguageHasEntries(null);
       }
     } catch (error) {
       setSearchError(error?.message || 'Search failed.');
       setSearchResults([]);
+      setLanguageHasEntries(null);
     } finally {
       setSearchLoading(false);
     }
@@ -620,6 +831,8 @@ const DictionaryApp = () => {
         return;
       }
       setEntry(mapWordEntryToDraft(data));
+      dirtyRef.current = false;
+      clearAutoSaveTimer();
     } catch (error) {
       setSearchError(error?.message || 'Failed to load entry.');
     } finally {
@@ -628,10 +841,12 @@ const DictionaryApp = () => {
   };
 
   const updateEntryField = (field, value) => {
+    markDirty();
     setEntry((prev) => ({ ...prev, [field]: value }));
   };
 
   const updateSense = (senseIndex, updater) => {
+    markDirty();
     setEntry((prev) => {
       const senses = prev.senses.map((sense, idx) => (idx === senseIndex ? updater(sense) : sense));
       return { ...prev, senses };
@@ -664,10 +879,12 @@ const DictionaryApp = () => {
   };
 
   const addSense = () => {
+    markDirty();
     setEntry((prev) => ({ ...prev, senses: [...prev.senses, createSense()] }));
   };
 
   const removeSense = (senseIndex) => {
+    markDirty();
     setEntry((prev) => {
       if (prev.senses.length === 1) return prev;
       const senses = prev.senses.filter((_, idx) => idx !== senseIndex);
@@ -902,6 +1119,7 @@ const DictionaryApp = () => {
   const handleDropSense = (targetIndex) => (event) => {
     event.preventDefault();
     if (!dragState || dragState.type !== 'sense') return;
+    markDirty();
     setEntry((prev) => ({ ...prev, senses: reorderArray(prev.senses, dragState.senseIndex, targetIndex) }));
     setDragState(null);
   };
@@ -909,6 +1127,7 @@ const DictionaryApp = () => {
   const handleDropExample = (senseIndex, targetIndex) => (event) => {
     event.preventDefault();
     if (!dragState || dragState.type !== 'example' || dragState.senseIndex !== senseIndex) return;
+    markDirty();
     updateSense(senseIndex, (sense) => ({
       ...sense,
       examples: reorderArray(sense.examples, dragState.itemIndex, targetIndex)
@@ -919,6 +1138,7 @@ const DictionaryApp = () => {
   const handleDropTranslation = (senseIndex, targetIndex) => (event) => {
     event.preventDefault();
     if (!dragState || dragState.type !== 'translation' || dragState.senseIndex !== senseIndex) return;
+    markDirty();
     updateSense(senseIndex, (sense) => ({
       ...sense,
       translations: reorderArray(sense.translations, dragState.itemIndex, targetIndex)
@@ -929,6 +1149,7 @@ const DictionaryApp = () => {
   const handleDropRelation = (senseIndex, targetIndex) => (event) => {
     event.preventDefault();
     if (!dragState || dragState.type !== 'relation' || dragState.senseIndex !== senseIndex) return;
+    markDirty();
     updateSense(senseIndex, (sense) => ({
       ...sense,
       relations: reorderArray(sense.relations, dragState.itemIndex, targetIndex)
@@ -937,6 +1158,8 @@ const DictionaryApp = () => {
   };
 
   const resetEntryForLemma = (lemma) => {
+    dirtyRef.current = false;
+    clearAutoSaveTimer();
     setEntry((prev) => ({
       entryId: null,
       languageId: prev.languageId,
@@ -984,41 +1207,126 @@ const DictionaryApp = () => {
     }
   };
 
-  const saveEntry = async () => {
-    if (!entry.languageId) {
-      setSaveStatus('Select a language before saving.');
+  const handleAuthSubmit = async (event) => {
+    event.preventDefault();
+    if (!authEmail.trim() || !authPassword) {
+      setAuthStatus('Email and password are required.');
       return;
     }
-    if (!entry.word.trim()) {
-      setSaveStatus('Lemma is required before saving.');
+    if (authMode === 'register' && authPassword !== authConfirm) {
+      setAuthStatus('Passwords do not match.');
       return;
+    }
+    setAuthBusy(true);
+    setAuthStatus('');
+    try {
+      const endpoint = authMode === 'register' ? '/auth/register' : '/auth/login';
+      const payload = authMode === 'register'
+        ? { email: authEmail.trim(), password: authPassword, confirm_password: authConfirm }
+        : { email: authEmail.trim(), password: authPassword };
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const detail = data?.detail || `Auth failed (${response.status}).`;
+        setAuthStatus(detail);
+        return;
+      }
+      if (authMode === 'register') {
+        setAuthStatus('Account created. You can log in now.');
+        setAuthMode('login');
+        setAuthPassword('');
+        setAuthConfirm('');
+        return;
+      }
+      setAccessToken(data.access_token || '');
+      setRefreshToken(data.refresh_token || '');
+      markOnboardingDone();
+      setAuthPassword('');
+      setAuthConfirm('');
+      setAuthStatus('Logged in.');
+    } catch (error) {
+      setAuthStatus(error?.message || 'Auth failed.');
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const handleLogout = () => {
+    setAccessToken('');
+    setRefreshToken('');
+    setCurrentUserEmail('');
+    setAuthStatus('Logged out. You can still contribute anonymously.');
+  };
+
+  const handleContinueAnonymous = () => {
+    markOnboardingDone();
+    setAuthStatus('');
+  };
+
+  const goToNextRandomSuggestion = async () => {
+    if (!entry.languageId) {
+      return;
+    }
+    let nextRow = null;
+    if (randomWords.length) {
+      nextRow = randomWords.find((row) => row.word !== entry.word) || randomWords[0];
+      setRandomWords((prev) => prev.filter((row) => row.id !== nextRow.id));
+    }
+    if (!nextRow) {
+      const fetched = await fetchRandomWords(1);
+      if (!Array.isArray(fetched) || !fetched.length) {
+        return;
+      }
+      nextRow = fetched[0];
+    }
+    await applyRandomWord(nextRow);
+  };
+
+  const saveEntry = async (options = {}) => {
+    const auto = Boolean(options.auto);
+    if (!entry.languageId) {
+      if (!auto) {
+        setSaveStatus('Select a language before saving.');
+      }
+      return false;
+    }
+    if (!entry.word.trim()) {
+      if (!auto) {
+        setSaveStatus('Lemma is required before saving.');
+      }
+      return false;
     }
 
     const sensesWithDefs = entry.senses.filter((sense) => sense.definition.trim());
     if (!sensesWithDefs.length) {
-      setSaveStatus('Add at least one sense with a definition.');
-      return;
+      if (!auto) {
+        setSaveStatus('Add at least one sense with a definition.');
+      }
+      return false;
     }
 
     const payload = buildPayload(entry);
     if (!payload.senses.length) {
-      setSaveStatus('Add at least one sense with a definition.');
-      return;
-    }
-
-    const token = accessToken || localStorage.getItem('access_token') || '';
-    if (!token) {
-      setSaveStatus('Access token is required to save.');
-      return;
+      if (!auto) {
+        setSaveStatus('Add at least one sense with a definition.');
+      }
+      return false;
     }
 
     setIsSaving(true);
-    setSaveStatus('Saving...');
+    setSaveStatus(auto ? 'Auto-saving...' : 'Saving...');
 
     const headers = {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`
+      'Content-Type': 'application/json'
     };
+    const token = accessToken || localStorage.getItem('access_token') || '';
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
 
     const attemptSave = async (url, method) => {
       const response = await fetch(url, {
@@ -1033,6 +1341,7 @@ const DictionaryApp = () => {
     try {
       let url = '/dictionary/word-entries';
       let method = 'POST';
+      let saved = false;
 
       if (entry.entryId) {
         url = `/dictionary/word-entries/${entry.entryId}`;
@@ -1062,169 +1371,296 @@ const DictionaryApp = () => {
         const detail = result.data?.detail || result.data?.message || `Save failed (${result.response.status}).`;
         setSaveStatus(detail);
       } else {
-        setSaveStatus('Saved to database.');
+        setSaveStatus(auto ? 'Auto-saved.' : 'Saved to database.');
         setEntry((prev) => ({ ...prev, entryId: result.data.id || prev.entryId }));
+        dirtyRef.current = false;
+        clearAutoSaveTimer();
+        saved = true;
+        if (!auto) {
+          await goToNextRandomSuggestion();
+        }
       }
+      return saved;
     } catch (error) {
       setSaveStatus(error.message || 'Save failed.');
+      return false;
     } finally {
       setIsSaving(false);
     }
   };
 
-  return (
-    <div style={styles.container}>
-      <div style={styles.leftMenu}>
-        <div style={styles.sideMenuHeader}>
-          <strong>Tools</strong>
-        </div>
-        <div style={styles.sideMenuSection}>
-          <h3 style={styles.sectionTitle}>Language</h3>
-          <select
-            style={styles.input}
-            value={entry.languageId}
-            onChange={(e) => updateEntryField('languageId', e.target.value)}
-          >
-            <option value="">Select language...</option>
-            {languages.map((lang) => (
-              <option key={lang.id} value={String(lang.id)}>{lang.name}</option>
-            ))}
-          </select>
-          <input
-            type="password"
-            name="token"
-            style={styles.input}
-            placeholder="Access token (optional)"
-            value={accessToken}
-            onChange={(e) => setAccessToken(e.target.value)}
-          />
-        </div>
-        <div style={styles.sideMenuSection}>
-          <label style={styles.randomMeta}>
-            <input
-              type="checkbox"
-              checked={clafricaEnabled}
-              onChange={(e) => setClafricaEnabled(e.target.checked)}
-            />{' '}
-            Enable Clafrica
-          </label>
-          {clafricaStatus && <div style={styles.statusText}>{clafricaStatus}</div>}
-        </div>
-        <div style={styles.sideMenuSection}>
-          <h3 style={styles.sectionTitle}>Search and list</h3>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-            <p style={{ ...styles.randomMeta, margin: 0 }}>Find entries and load them into the editor.</p>
-            <label style={{ ...styles.randomMeta, margin: 0, whiteSpace: 'nowrap' }}>
-              <input
-                type="checkbox"
-                checked={exactMatch}
-                onChange={(e) => setExactMatch(e.target.checked)}
-              />{' '}
-              Exact match
-            </label>
-          </div>
-          <input
-            style={styles.input}
-            placeholder="Search lemma"
-            value={searchTerm}
-            onKeyDown={handleTextKeyDown({ kind: 'search' })}
-            onChange={handleTextChange({ kind: 'search' })}
-          />
-          <select
-            style={styles.input}
-            value={searchStatus}
-            onChange={(e) => setSearchStatus(e.target.value)}
-          >
-            <option value="all">All</option>
-            <option value="draft">Draft</option>
-            <option value="published">Published</option>
-          </select>
-          <input
-            type="number"
-            min="1"
-            max="200"
-            style={styles.input}
-            value={searchLimit}
-            onChange={(e) => setSearchLimit(resolveSearchLimit(e.target.value))}
-          />
-          {searchError && <div style={styles.statusText}>{searchError}</div>}
-          {!searchLoading && !searchError && searchResults.length === 0 && (
-            <div style={styles.statusText}>
-              No entries found.
-              {searchTerm ? (
-                <button
-                  style={{ ...styles.buttonGhost, marginLeft: '8px' }}
-                  onClick={() => resetEntryForLemma(searchTerm)}
-                >
-                  Create entry
-                </button>
-              ) : null}
-            </div>
-          )}
-            <div style={styles.randomList}>
-              {searchResults.map((row) => {
-                const senses = Array.isArray(row.senses) ? row.senses : [];
-                const definedCount = senses.filter((sense) => {
-                  const text = sense && sense.definition_text ? String(sense.definition_text).trim() : '';
-                  return text.length > 0;
-                }).length;
-                const metaText = definedCount
-                  ? `defined, ${definedCount} sense${definedCount === 1 ? '' : 's'}`
-                  : 'not defined';
-                const normalized = Math.min(definedCount, 6) / 6;
-                const lightness = Math.round(85 - normalized * 35);
-                const openStyle = definedCount
-                  ? {
-                      ...styles.buttonGhost,
-                      background: `hsl(140, 45%, ${lightness}%)`,
-                      borderColor: `hsl(140, 35%, ${Math.max(lightness - 10, 35)}%)`,
-                      color: '#0f2d1c'
-                    }
-                  : styles.buttonGhost;
-                const actionLabel = definedCount ? 'Modify' : 'Define';
-                return (
-                  <div key={`entry-${row.id}`} style={styles.randomRow}>
-                    <div>
-                      <div style={styles.randomWord}>{row.lemma_raw}</div>
-                      <div style={styles.randomMeta}>{metaText}</div>
-                    </div>
-                    <button style={openStyle} onClick={() => loadWordEntry(row.id)}>{actionLabel}</button>
-                  </div>
-                );
-              })}
-            </div>
-        </div>
-        <div style={styles.sideMenuSection}>
-          <h3 style={styles.sectionTitle}>Random suggestions</h3>
-          <p style={styles.randomMeta}>Pick a word and start defining it.</p>
-          <div style={styles.rowSplit}>
-            <input
-              type="number"
-              min="1"
-              max="200"
-              style={styles.input}
-              value={randomLimit}
-              onChange={(e) => setRandomLimit(resolveRandomLimit(e.target.value))}
-            />
-            <button style={styles.buttonGhost} onClick={() => fetchRandomWords()}>
-              {randomLoading ? 'Loading...' : `Next ${resolveRandomLimit(randomLimit)}`}
+  const noSearchResults = !searchLoading && !searchError && searchResults.length === 0;
+  const noRandomResults = !randomLoading && !randomError && randomWords.length === 0;
+  const noSeedList = languageHasEntries === false;
+  const searchEmptyMessage = searchTerm
+    ? 'No matches found.'
+    : (noSeedList ? 'No word list seeded for this language yet.' : 'No entries found.');
+  const randomEmptyMessage = noSeedList
+    ? 'No word list seeded for this language yet.'
+    : 'No undefined words found.';
+
+  const containerStyle = leftMenuCollapsed
+    ? { ...styles.container, gridTemplateColumns: '60px minmax(0, 1.6fr) minmax(220px, 0.6fr)' }
+    : styles.container;
+
+  const handleFormSideClick = () => {
+    if (!leftMenuCollapsed) {
+      setLeftMenuCollapsed(true);
+    }
+  };
+
+  if (showOnboarding) {
+    return (
+      <div style={styles.onboardingWrap}>
+        <div style={styles.onboardingCard}>
+          <h1 style={styles.onboardingTitle}>Welcome</h1>
+          <p style={styles.onboardingText}>
+            You can contribute without logging in. Create an account to track your contributions.
+          </p>
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
+            <button style={styles.button} onClick={handleContinueAnonymous}>
+              Continue without account
+            </button>
+            <button style={styles.buttonGhost} onClick={() => setAuthMode('login')}>
+              Log in
+            </button>
+            <button style={styles.buttonGhost} onClick={() => setAuthMode('register')}>
+              Sign up
             </button>
           </div>
-          {randomError && <div style={styles.statusText}>{randomError}</div>}
-          {!randomLoading && !randomError && randomWords.length === 0 && (
-            <div style={styles.statusText}>No random words found.</div>
-          )}
-            <div style={styles.randomList}>
-              {randomWords.map((row) => (
-                <div key={`random-${row.id}`} style={styles.randomRow}>
-                  <span style={styles.randomWord}>{row.word}</span>
-                  <button style={styles.buttonGhost} onClick={() => applyRandomWord(row)}>Define</button>
-                </div>
-              ))}
-            </div>
+          <form onSubmit={handleAuthSubmit}>
+            <input
+              style={styles.input}
+              type="email"
+              placeholder="Email"
+              value={authEmail}
+              onChange={(e) => setAuthEmail(e.target.value)}
+            />
+            <input
+              style={styles.input}
+              type="password"
+              placeholder="Password"
+              value={authPassword}
+              onChange={(e) => setAuthPassword(e.target.value)}
+            />
+            <div style={styles.statusText}>{PASSWORD_RULES_TEXT}</div>
+            {authMode === 'register' && (
+              <input
+                style={styles.input}
+                type="password"
+                placeholder="Confirm password"
+                value={authConfirm}
+                onChange={(e) => setAuthConfirm(e.target.value)}
+              />
+            )}
+            <button style={styles.button} type="submit" disabled={authBusy}>
+              {authBusy ? 'Please wait...' : authMode === 'register' ? 'Create account' : 'Log in'}
+            </button>
+            {authStatus && <div style={styles.statusText}>{authStatus}</div>}
+          </form>
         </div>
       </div>
-      <div style={styles.formSide}>
+    );
+  }
+
+  return (
+    <div style={containerStyle}>
+      <div
+        style={{
+          ...styles.leftMenu,
+          ...(leftMenuMinHeight ? { minHeight: `${leftMenuMinHeight}px` } : {}),
+          ...(leftMenuCollapsed ? styles.leftMenuCollapsed : {})
+        }}
+        onClick={() => {
+          if (leftMenuCollapsed) {
+            setLeftMenuCollapsed(false);
+          }
+        }}
+      >
+        {leftMenuCollapsed ? (
+          <div style={styles.leftMenuCollapsedLabel}>Tools</div>
+        ) : (
+          <>
+            <div style={styles.sideMenuHeader}>
+              <strong>Tools</strong>
+            </div>
+            <div style={styles.leftMenuBody}>
+              <div style={styles.sideMenuSection}>
+                <h3 style={styles.sectionTitle}>Language</h3>
+                <select
+                  style={styles.input}
+                  value={entry.languageId}
+                  onChange={(e) => updateEntryField('languageId', e.target.value)}
+                >
+                  <option value="">Select language...</option>
+                  {languages.map((lang) => (
+                    <option key={lang.id} value={String(lang.id)}>{lang.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div style={styles.sideMenuSection}>
+                <label style={styles.randomMeta}>
+                  <input
+                    type="checkbox"
+                    checked={clafricaEnabled}
+                    onChange={(e) => setClafricaEnabled(e.target.checked)}
+                  />{' '}
+                  Enable Clafrica input
+                </label>
+                {clafricaStatus && <div style={styles.statusText}>{clafricaStatus}</div>}
+              </div>
+              {noSeedList ? (
+                <div style={styles.emptyState}>
+                  This language has no seeded word list yet. You can still add new entries from the editor.
+                </div>
+              ) : (
+                <>
+                  <div style={styles.sideMenuSection}>
+                    <h3 style={styles.sectionTitle}>Search and list</h3>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                      <p style={{ ...styles.randomMeta, margin: 0 }}>Find entries and load them into the editor.</p>
+                      <label style={{ ...styles.randomMeta, margin: 0, whiteSpace: 'nowrap' }}>
+                        <input
+                          type="checkbox"
+                          checked={exactMatch}
+                          onChange={(e) => setExactMatch(e.target.checked)}
+                        />{' '}
+                        Exact match
+                      </label>
+                    </div>
+                    <input
+                      style={styles.input}
+                      placeholder="Search lemma"
+                      value={searchTerm}
+                      onKeyDown={handleTextKeyDown({ kind: 'search' })}
+                      onChange={handleTextChange({ kind: 'search' })}
+                    />
+                    <select
+                      style={styles.input}
+                      value={searchStatus}
+                      onChange={(e) => setSearchStatus(e.target.value)}
+                    >
+                      <option value="all">All</option>
+                      <option value="draft">Draft</option>
+                      <option value="published">Published</option>
+                    </select>
+                    <input
+                      type="number"
+                      min="1"
+                      max="200"
+                      style={styles.input}
+                      value={searchLimit}
+                      onChange={(e) => setSearchLimit(resolveSearchLimit(e.target.value))}
+                    />
+                    {searchError && <div style={styles.statusText}>{searchError}</div>}
+                    {noSearchResults && (
+                      <div style={styles.emptyState}>
+                        {searchEmptyMessage}
+                        {searchTerm ? (
+                          <button
+                            style={{ ...styles.buttonGhost, marginLeft: '8px' }}
+                            onClick={() => resetEntryForLemma(searchTerm)}
+                          >
+                            Create entry
+                          </button>
+                        ) : null}
+                      </div>
+                    )}
+                    {searchResults.length > 0 && (
+                      <div style={styles.randomList}>
+                        {searchResults.map((row) => {
+                          const senses = Array.isArray(row.senses) ? row.senses : [];
+                          const definedCount = senses.filter((sense) => {
+                            const text = sense && sense.definition_text ? String(sense.definition_text).trim() : '';
+                            return text.length > 0;
+                          }).length;
+                          const metaText = definedCount
+                            ? `defined, ${definedCount} sense${definedCount === 1 ? '' : 's'}`
+                            : 'not defined';
+                          const normalized = Math.min(definedCount, 6) / 6;
+                          const lightness = Math.round(85 - normalized * 35);
+                          const openStyle = definedCount
+                            ? {
+                                ...styles.buttonGhost,
+                                background: `hsl(140, 45%, ${lightness}%)`,
+                                borderColor: `hsl(140, 35%, ${Math.max(lightness - 10, 35)}%)`,
+                                color: '#0f2d1c'
+                              }
+                            : styles.buttonGhost;
+                          const actionLabel = definedCount ? 'Modify' : 'Define';
+                          return (
+                            <div key={`entry-${row.id}`} style={styles.randomRow}>
+                              <div>
+                                <div style={styles.randomWord}>{row.lemma_raw}</div>
+                                <div style={styles.randomMeta}>{metaText}</div>
+                              </div>
+                              <button style={openStyle} onClick={() => loadWordEntry(row.id)}>{actionLabel}</button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  <div style={styles.sideMenuSection}>
+                    <h3 style={styles.sectionTitle}>Random suggestions</h3>
+                    <p style={styles.randomMeta}>Pick a word and start defining it.</p>
+                    <div style={styles.rowSplit}>
+                      <input
+                        type="number"
+                        min="1"
+                        max="200"
+                        style={styles.input}
+                        value={randomLimit}
+                        onChange={(e) => setRandomLimit(resolveRandomLimit(e.target.value))}
+                      />
+                      <button style={styles.buttonGhost} onClick={() => fetchRandomWords()}>
+                        {randomLoading ? 'Loading...' : `Next ${resolveRandomLimit(randomLimit)}`}
+                      </button>
+                    </div>
+                    {randomError && <div style={styles.statusText}>{randomError}</div>}
+                    {noRandomResults && (
+                      <div style={styles.emptyState}>{randomEmptyMessage}</div>
+                    )}
+                    {randomWords.length > 0 && (
+                      <div style={styles.randomList}>
+                        {randomWords.map((row) => (
+                          <div key={`random-${row.id}`} style={styles.randomRow}>
+                            <span style={styles.randomWord}>{row.word}</span>
+                            <button style={styles.buttonGhost} onClick={() => applyRandomWord(row)}>Define</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+            <div style={styles.leftMenuFooter}>
+              <input
+                type="password"
+                name="token"
+                style={styles.input}
+                placeholder="Access token (optional)"
+                value={accessToken}
+                onChange={(e) => setAccessToken(e.target.value)}
+              />
+            </div>
+          </>
+        )}
+      </div>
+      <div style={styles.formSide} onClick={handleFormSideClick} ref={formSideRef}>
+        <div style={styles.topBar}>
+          <div style={styles.topBarGroup}>
+            <span style={styles.randomMeta}>
+              {currentUserEmail ? `Signed in as ${currentUserEmail}` : 'Anonymous'}
+            </span>
+            {currentUserEmail ? (
+              <button style={styles.buttonGhost} onClick={handleLogout}>Log out</button>
+            ) : (
+              <button style={styles.buttonGhost} onClick={openOnboarding}>Log in / Sign up</button>
+            )}
+          </div>
+        </div>
         <div style={styles.card}>
           <h3 style={styles.sectionTitle}>Word Entry</h3>
           <input
@@ -1470,7 +1906,7 @@ const DictionaryApp = () => {
                   ex.text ? (
                     <div key={`preview-ex-${senseIndex}-${exIndex}`} style={styles.exampleBox}>
                       <strong>Ex:</strong> {ex.text} <br />
-                      {ex.translation && <span style={{ color: '#64748b' }}>-> {ex.translation}</span>}
+                      {ex.translation && <span style={{ color: '#64748b' }}>{'->'} {ex.translation}</span>}
                     </div>
                   ) : null
                 )}
@@ -1494,10 +1930,6 @@ const DictionaryApp = () => {
 };
 
 const rootEl = document.getElementById('temporary-root');
-if (rootEl && window.ReactDOM) {
-  if (typeof ReactDOM.createRoot === 'function') {
-    ReactDOM.createRoot(rootEl).render(<DictionaryApp />);
-  } else if (typeof ReactDOM.render === 'function') {
-    ReactDOM.render(<DictionaryApp />, rootEl);
-  }
+if (rootEl) {
+  createRoot(rootEl).render(<DictionaryApp />);
 }

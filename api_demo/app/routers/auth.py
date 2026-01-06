@@ -34,15 +34,6 @@ def register(request: Request, payload: RegisterRequest, db: Session = Depends(g
 	if exists and not exists.is_deleted:
 		raise HTTPException(status_code=409, detail="Email already registered")
 
-	needs_invite = not exists
-	invite = None
-	if needs_invite:
-		if not payload.invite_code:
-			raise HTTPException(status_code=403, detail="Invite code required")
-		invite = db.query(InviteCode).filter(InviteCode.code == payload.invite_code).first()
-		if not invite or invite.used_at:
-			raise HTTPException(status_code=403, detail="Invalid invite code")
-
 	if exists and exists.is_deleted:
 		user = exists
 		user.password_hash = hash_password(payload.password)
@@ -62,9 +53,6 @@ def register(request: Request, payload: RegisterRequest, db: Session = Depends(g
 		)
 		db.add(user)
 		db.flush()
-	if invite:
-		invite.used_by_id = user.id
-		invite.used_at = datetime.utcnow()
 	db.commit()
 
 	db.query(EmailVerification).filter(EmailVerification.user_id == user.id).delete(
@@ -257,11 +245,6 @@ def google_callback(code: str, state: str | None = None, db: Session = Depends(g
 
 	user = db.query(User).filter(User.email == email).first()
 	if not user:
-		if not state:
-			raise HTTPException(status_code=403, detail="Invite code required")
-		invite = db.query(InviteCode).filter(InviteCode.code == state).first()
-		if not invite or invite.used_at:
-			raise HTTPException(status_code=403, detail="Invalid invite code")
 		user = User(
 			email=email,
 			password_hash=hash_password(secrets.token_urlsafe(16)),
@@ -272,8 +255,6 @@ def google_callback(code: str, state: str | None = None, db: Session = Depends(g
 		)
 		db.add(user)
 		db.flush()
-		invite.used_by_id = user.id
-		invite.used_at = datetime.utcnow()
 		db.commit()
 	else:
 		if user.is_deleted:

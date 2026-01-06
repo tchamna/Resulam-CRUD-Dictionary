@@ -31,6 +31,37 @@ const toolsPanel = document.getElementById("tools-panel");
 
 let languageCache = [];
 let currentUserRole = null;
+
+// Adjust the left menu height to match the panels height (sum of content)
+function adjustMenuHeight() {
+  const menu = document.querySelector('.menu');
+  const panels = document.querySelector('.panels');
+  if (!menu || !panels) return;
+  // Use panels total height (including its children)
+  const rect = panels.getBoundingClientRect();
+  // If panels height is smaller than viewport, ensure menu fills at least that height
+  const height = Math.max(rect.height, window.innerHeight - (document.querySelector('.hero')?.getBoundingClientRect().height || 0));
+  menu.style.height = `${Math.ceil(height)}px`;
+}
+
+// Debounced resize
+let _menuResizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(_menuResizeTimer);
+  _menuResizeTimer = setTimeout(adjustMenuHeight, 150);
+});
+
+// Observe panels for content changes and update the menu height
+const panelsEl = document.querySelector('.panels');
+if (panelsEl) {
+  const mo = new MutationObserver(() => adjustMenuHeight());
+  mo.observe(panelsEl, { childList: true, subtree: true, attributes: true });
+}
+
+// Initial adjust after load and after images/fonts settle
+window.addEventListener('load', () => setTimeout(adjustMenuHeight, 120));
+setTimeout(adjustMenuHeight, 200);
+
 let currentUserEmail = null;
 let confirmResolver = null;
 let lastSearchTerm = "";
@@ -342,7 +373,6 @@ async function loadLanguages() {
       if (languageCache.length) {
         const nufi = languageCache.find((row) => normalizeLanguageKey(row.name) === "nufi");
         setLanguage(nufi || languageCache[0]);
-        await fetchRandomWords();
       }
     }
   } catch (err) {
@@ -434,9 +464,11 @@ function getDictionaryLabels() {
   }
   return {
     title: "Dictionary",
-    allWords: "All words",
+    allWords: "All entries",
     needsDefinition: "needs definition",
     defined: "defined",
+    draft: "draft",
+    published: "published",
     define: "Define",
     edit: "Edit",
     wordLabel: "Word",
@@ -460,14 +492,18 @@ function updateDictionaryLabels() {
   if (labelSynonyms) labelSynonyms.textContent = labels.synonymsLabel;
   if (labelTranslationFr) labelTranslationFr.textContent = labels.translationFrLabel;
   if (labelTranslationEn) labelTranslationEn.textContent = labels.translationEnLabel;
-  const statusSelect = document.querySelector(
-    'form[data-endpoint="/dictionary"][data-method="GET"] select[name="status"]'
-  );
+  const statusSelect =
+    document.querySelector('form[data-endpoint="/dictionary/word-entries"][data-method="GET"] select[name="status"]') ||
+    document.querySelector('form[data-endpoint="/dictionary"][data-method="GET"] select[name="status"]');
   if (statusSelect) {
     const allOption = statusSelect.querySelector('option[value="all"]');
+    const draftOption = statusSelect.querySelector('option[value="draft"]');
+    const publishedOption = statusSelect.querySelector('option[value="published"]');
     const undefinedOption = statusSelect.querySelector('option[value="undefined"]');
     const definedOption = statusSelect.querySelector('option[value="defined"]');
-    if (allOption) allOption.textContent = labels.allWords || "All words";
+    if (allOption) allOption.textContent = labels.allWords || "All entries";
+    if (draftOption) draftOption.textContent = labels.draft || labels.needsDefinition || "draft";
+    if (publishedOption) publishedOption.textContent = labels.published || labels.defined || "published";
     if (undefinedOption) undefinedOption.textContent = labels.needsDefinition;
     if (definedOption) definedOption.textContent = labels.defined;
   }
@@ -482,7 +518,12 @@ function setLanguage(row) {
   currentLanguageKey = normalizeLanguageKey(row.name);
   updateDictionaryLabels();
   syncLanguageHiddenFields();
-  fetchRandomWords();
+  const randomForm = document.getElementById("random-words-form");
+  if (randomForm && !randomForm.classList.contains("is-hidden")) {
+    fetchRandomWords();
+  } else {
+    fetchWordEntries();
+  }
 }
 
 function closeLanguageDropdown() {
@@ -527,6 +568,18 @@ async function deleteLanguage(id) {
     }
   } catch (err) {
     appendLog("Delete language failed", { message: err.message });
+  }
+}
+
+function fetchWordEntries() {
+  const form = document.querySelector('form[data-endpoint="/dictionary/word-entries"][data-method="GET"]');
+  if (!form) {
+    return;
+  }
+  if (typeof form.requestSubmit === "function") {
+    form.requestSubmit();
+  } else {
+    form.dispatchEvent(new Event("submit", { cancelable: true }));
   }
 }
 
@@ -674,6 +727,43 @@ function collectFormData(form) {
   return data;
 }
 
+async function openSenseEditorForWord(word, languageId) {
+  if (typeof showSenseEditor !== "function") {
+    return;
+  }
+  if (!word) {
+    showSenseEditor(null, languageId, "");
+    return;
+  }
+  if (!languageId) {
+    showSenseEditor(null, languageId, word);
+    return;
+  }
+  try {
+    const params = new URLSearchParams({
+      language_id: String(languageId),
+      search: word,
+      limit: "20",
+      offset: "0",
+    });
+    const res = await apiRequest({
+      endpoint: `/dictionary/word-entries?${params.toString()}`,
+      method: "GET",
+      auth: true,
+    });
+    if (res.ok && Array.isArray(res.data)) {
+      const exact = res.data.find((row) => row.lemma_raw === word);
+      if (exact) {
+        showSenseEditor(exact.id, languageId);
+        return;
+      }
+    }
+  } catch (err) {
+    appendLog("Word entry lookup failed", { message: err.message });
+  }
+  showSenseEditor(null, languageId, word);
+}
+
 function renderResult(targetId, res) {
   const el = document.getElementById(targetId);
   if (!el) return;
@@ -685,34 +775,81 @@ function renderResult(targetId, res) {
 
   if (targetId === "dictionary-result" && Array.isArray(res.data)) {
     const labels = getDictionaryLabels();
-    if (res.data.length === 0) {
-      el.textContent = "No words found. You can add it below.";
-      if (lastSearchTerm && lastSearchLanguageId) {
-        const form = document.getElementById("definition-form");
-        if (form) {
-          const idInput = form.querySelector('input[name="id"]');
-          const wordInput = form.querySelector('input[name="word"]');
-          const definitionInput = form.querySelector('textarea[name="definition"]');
-          const examplesInput = form.querySelector('textarea[name="examples"]');
-          const synonymsInput = form.querySelector('input[name="synonyms"]');
-          const translationFrInput = form.querySelector('textarea[name="translation_fr"]');
-          const translationEnInput = form.querySelector('textarea[name="translation_en"]');
-          const languageInput = form.querySelector('input[name="language_id"]');
-          if (idInput) idInput.value = "";
-          if (idInput) idInput.placeholder = "(new word)";
-          if (wordInput) wordInput.value = lastSearchTerm;
-          if (definitionInput) definitionInput.value = "";
-          if (examplesInput) examplesInput.value = "";
-          if (synonymsInput) synonymsInput.value = "";
-          if (translationFrInput) translationFrInput.value = "";
-          if (translationEnInput) translationEnInput.value = "";
-          if (languageInput) languageInput.value = lastSearchLanguageId;
-          form.scrollIntoView({ behavior: "smooth", block: "start" });
-          if (definitionInput) {
-            definitionInput.focus();
-          }
-        }
+    const isWordEntryList =
+      lastListMode === "word-entries" ||
+      (res.data.length > 0 &&
+        res.data[0] &&
+        Object.prototype.hasOwnProperty.call(res.data[0], "lemma_raw"));
+
+    if (isWordEntryList && res.data.length === 0) {
+      el.textContent = "";
+      const empty = document.createElement("div");
+      empty.textContent = "No entries found.";
+      if (lastSearchTerm && lastSearchLanguageId && typeof showSenseEditor === "function") {
+        const createButton = document.createElement("button");
+        createButton.type = "button";
+        createButton.className = "ghost small";
+        createButton.textContent = `Create "${lastSearchTerm}"`;
+        createButton.addEventListener("click", () => {
+          showSenseEditor(null, lastSearchLanguageId, lastSearchTerm);
+        });
+        empty.appendChild(createButton);
       }
+      el.appendChild(empty);
+      return;
+    }
+
+    if (isWordEntryList) {
+      el.textContent = "";
+      const list = document.createElement("div");
+      list.className = "item-list";
+      res.data.forEach((entry) => {
+        const row = document.createElement("div");
+        row.className = "item-row";
+        row.dataset.entryId = entry.id;
+
+        const senseCount = Array.isArray(entry.senses) ? entry.senses.length : 0;
+        const status = entry.status || "draft";
+        const metaParts = [status];
+        if (senseCount) {
+          metaParts.push(`${senseCount} sense${senseCount === 1 ? "" : "s"}`);
+        }
+        const label = document.createElement("span");
+        label.textContent = `#${entry.id} ${entry.lemma_raw} (${metaParts.join(", ")})`;
+
+        const useButton = document.createElement("button");
+        useButton.type = "button";
+        useButton.className = "ghost small";
+        useButton.textContent = labels.edit || "Edit";
+        useButton.addEventListener("click", () => {
+          if (typeof showSenseEditor === "function") {
+            showSenseEditor(entry.id, entry.language_id);
+          }
+        });
+
+        row.appendChild(label);
+        row.appendChild(useButton);
+        list.appendChild(row);
+      });
+      el.appendChild(list);
+      return;
+    }
+
+    if (res.data.length === 0) {
+      el.textContent = "";
+      const empty = document.createElement("div");
+      empty.textContent = "No words found.";
+      if (lastSearchTerm && lastSearchLanguageId) {
+        const createButton = document.createElement("button");
+        createButton.type = "button";
+        createButton.className = "ghost small";
+        createButton.textContent = `Create "${lastSearchTerm}"`;
+        createButton.addEventListener("click", () => {
+          openSenseEditorForWord(lastSearchTerm, lastSearchLanguageId);
+        });
+        empty.appendChild(createButton);
+      }
+      el.appendChild(empty);
       return;
     }
 
@@ -749,26 +886,7 @@ function renderResult(targetId, res) {
         useButton.style.background = `hsl(140, 45%, ${lightness}%)`;
       }
       useButton.addEventListener("click", () => {
-        const form = document.getElementById("definition-form");
-        if (!form) return;
-        const idInput = form.querySelector('input[name="id"]');
-        const wordInput = form.querySelector('input[name="word"]');
-        const definitionInput = form.querySelector('textarea[name="definition"]');
-        const examplesInput = form.querySelector('textarea[name="examples"]');
-        const synonymsInput = form.querySelector('input[name="synonyms"]');
-        const translationFrInput = form.querySelector('textarea[name="translation_fr"]');
-        const translationEnInput = form.querySelector('textarea[name="translation_en"]');
-        const languageInput = form.querySelector('input[name="language_id"]');
-        if (idInput) idInput.value = entry.id;
-        if (idInput) idInput.placeholder = "";
-        if (wordInput) wordInput.value = entry.word;
-        if (definitionInput) definitionInput.value = entry.definition || "";
-        if (examplesInput) examplesInput.value = entry.examples || "";
-        if (synonymsInput) synonymsInput.value = entry.synonyms || "";
-        if (translationFrInput) translationFrInput.value = entry.translation_fr || "";
-        if (translationEnInput) translationEnInput.value = entry.translation_en || "";
-        if (languageInput) languageInput.value = entry.language_id;
-        form.scrollIntoView({ behavior: "smooth", block: "start" });
+        openSenseEditorForWord(entry.word, entry.language_id);
       });
 
       row.appendChild(label);
@@ -788,21 +906,6 @@ function renderResult(targetId, res) {
     el.textContent = `Reseeded ${res.data.count} words.`;
     return;
   }
-
-  if (targetId === "invite-result" || targetId === "invite-result-users") {
-    if (!res.ok) {
-      el.textContent = `Error ${res.status}: ${JSON.stringify(res.data)}`;
-      return;
-    }
-    const codes = Array.isArray(res.data?.codes) ? res.data.codes : [];
-    if (!codes.length) {
-      el.textContent = "No invite codes returned.";
-      return;
-    }
-    el.textContent = `Invite codes: ${codes.join(", ")}`;
-    return;
-  }
-
   if (targetId === "register-result") {
     if (!res.ok) {
       el.textContent = `Error ${res.status}: ${JSON.stringify(res.data)}`;
@@ -1013,6 +1116,32 @@ document.querySelectorAll("form").forEach((form) => {
       lastSearchLanguageId = data.language_id || "";
       lastListMode = "search";
     }
+    if (endpointTemplate === "/dictionary/word-entries" && method === "GET") {
+      if (!data.language_id) {
+        const guess = languageInput ? languageInput.value.trim() : "";
+        const match = guess ? findLanguageMatch(guess) : null;
+        if (match) {
+          data.language_id = match.id;
+          if (languageIdInput) {
+            languageIdInput.value = match.id;
+          }
+          syncLanguageHiddenFields();
+        }
+      }
+      if (!data.language_id) {
+        const resultEl = document.getElementById("dictionary-result");
+        if (resultEl) {
+          resultEl.textContent = "Select a language before fetching entries.";
+        }
+        return;
+      }
+      if (data.status === "all") {
+        delete data.status;
+      }
+      lastSearchTerm = data.search || "";
+      lastSearchLanguageId = data.language_id || "";
+      lastListMode = "word-entries";
+    }
     if (endpointTemplate === "/dictionary/random" && method === "GET") {
       lastListMode = "random";
       lastRandomLanguageId = data.language_id || "";
@@ -1201,10 +1330,7 @@ function refreshUsersList() {
 const googleLoginButton = document.getElementById("google-login");
 if (googleLoginButton) {
   googleLoginButton.addEventListener("click", () => {
-    const inviteInput = document.getElementById("google-invite");
-    const invite = inviteInput ? inviteInput.value.trim() : "";
-    const url = invite ? `/auth/google/login?invite=${encodeURIComponent(invite)}` : "/auth/google/login";
-    window.location.href = url;
+    window.location.href = "/auth/google/login";
   });
 }
 
@@ -1220,13 +1346,34 @@ if (logoutButton) {
   });
 }
 
+const newEntryButton = document.getElementById("sense-editor-new");
+if (newEntryButton) {
+  newEntryButton.addEventListener("click", () => {
+    if (typeof showSenseEditor !== "function") {
+      return;
+    }
+    const languageId = languageIdInput ? languageIdInput.value : "";
+    const searchInput = document.querySelector(
+      'form[data-endpoint="/dictionary/word-entries"] input[name="search"]'
+    );
+    const lemmaSeed = searchInput ? searchInput.value.trim() : "";
+    showSenseEditor(null, languageId, lemmaSeed);
+  });
+}
+
 const randomForm = document.getElementById("random-words-form");
-if (randomForm) {
+if (randomForm && !randomForm.classList.contains("is-hidden")) {
   const countInput = randomForm.querySelector('input[name="limit"]');
-  const limitInput = document.getElementById("dictionary-limit");
   const countLabel = document.getElementById("random-count-label");
   const submitButton = document.getElementById("random-submit");
   let randomRefreshTimer = null;
+  const getRandomLimit = () => {
+    const rawValue = countInput ? parseInt(countInput.value, 10) : NaN;
+    if (!Number.isFinite(rawValue) || rawValue < 1) {
+      return 10;
+    }
+    return Math.min(rawValue, 200);
+  };
   const scheduleRandomRefresh = () => {
     if (!randomLanguageId || !randomLanguageId.value) {
       return;
@@ -1246,7 +1393,7 @@ if (randomForm) {
     }, 400);
   };
   const updateRandomLabel = () => {
-    const boundedValue = getRequestedLimit();
+    const boundedValue = getRandomLimit();
     if (countInput) {
       countInput.value = String(boundedValue);
     }
@@ -1258,14 +1405,12 @@ if (randomForm) {
     }
     scheduleRandomRefresh();
   };
-  if (limitInput) {
-    limitInput.addEventListener("input", updateRandomLabel);
-    limitInput.addEventListener("change", updateRandomLabel);
-  }
   updateRandomLabel();
 }
 
-const dictionaryForm = document.querySelector('form[data-endpoint="/dictionary"][data-method="GET"]');
+const dictionaryForm =
+  document.querySelector('form[data-endpoint="/dictionary/word-entries"][data-method="GET"]') ||
+  document.querySelector('form[data-endpoint="/dictionary"][data-method="GET"]');
 if (dictionaryForm) {
   const statusSelect = dictionaryForm.querySelector('select[name="status"]');
   if (statusSelect) {
@@ -1443,14 +1588,7 @@ document.querySelectorAll(".admin-only").forEach((el) => {
   if (!isAdminRoute) {
     el.classList.add("is-hidden");
   }
-});
-if (isAdminRoute) {
-  document.querySelectorAll(".invite-field").forEach((el) => {
-    el.classList.add("is-hidden");
-  });
-}
-
-function showAuthOnly(defaultTab = "register") {
+});function showAuthOnly(defaultTab = "register") {
   const authPanel = document.getElementById("panel-auth");
   document.querySelectorAll(".panel").forEach((panel) => {
     if (panel !== authPanel) {

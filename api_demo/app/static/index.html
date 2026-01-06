@@ -6,7 +6,7 @@
   <title>Resulam Dictionaries</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Charis+SIL:wght@400;700&family=Space+Grotesk:wght@400;500;600;700&family=Unbounded:wght@500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Sora:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
 <body>
@@ -53,10 +53,8 @@
             <label>Password<input name="password" type="password" required></label>
             <p class="hint">Password must be at least 5 characters and include a letter and a number.</p>
             <label>Confirm password<input name="confirm_password" type="password" required></label>
-            <label class="invite-field">Invite code (new accounts)<input name="invite_code" type="text"></label>
             <button type="submit">Create account</button>
             <button id="google-login" type="button" class="ghost">Sign up with Google</button>
-            <label class="invite-field">Invite code (Google signup)<input id="google-invite" type="text"></label>
             <div id="register-result" class="result"></div>
           </form>
           <form id="login-form" data-endpoint="/auth/login" data-method="POST" data-token-out="true" data-auth-tab="login">
@@ -78,12 +76,6 @@
             <label>Token<input name="token" type="text" required></label>
             <button type="submit">Confirm verification</button>
           </form>
-          <form data-endpoint="/auth/invites" data-method="POST" data-auth="true" data-result-target="invite-result">
-            <h3>Create invite code (Admin)</h3>
-            <label>Quantity<input name="quantity" type="number" value="1" min="1" max="10" /></label>
-            <button type="submit">Create invite</button>
-          </form>
-          <div id="invite-result" class="result"></div>
           <form data-endpoint="/auth/refresh" data-method="POST" data-refresh="true" data-token-out="true">
             <h3>Refresh tokens</h3>
             <p class="hint">Uses the saved refresh token if you leave the field blank.</p>
@@ -120,9 +112,9 @@
         </div>
       </div>
       <div class="forms">
-        <form data-endpoint="/dictionary" data-method="GET" data-auth="true" data-result-target="dictionary-result">
+        <form data-endpoint="/dictionary/word-entries" data-method="GET" data-auth="true" data-result-target="dictionary-result">
           <!-- <h3>Word list</h3> -->
-          <p class="hint">Search and pick a word to define or update.</p>
+          <p class="hint">Search entries and open the sense editor.</p>
           <div class="language-picker">
             <label>Language
               <input id="language-input" type="text" placeholder="Search or add language" />
@@ -133,16 +125,19 @@
           <label>Search<input name="search" type="text" data-clafrica="true" /></label>
           <label>Status
             <select name="status">
-              <option value="all" selected>All words</option>
-              <option value="undefined">Needs definition</option>
-              <option value="defined">Defined</option>
+              <option value="all" selected>All entries</option>
+              <option value="draft">Draft</option>
+              <option value="published">Published</option>
             </select>
           </label>
           <div class="inline">
             <label><input name="exact" type="checkbox" value="true"> Exact match</label>
             <label>Limit<input id="dictionary-limit" name="limit" type="number" value="20" min="1" max="200" /></label>
           </div>
-          <button type="submit">Fetch words</button>
+          <div class="inline">
+            <button type="submit">Fetch entries</button>
+            <button id="sense-editor-new" type="button" class="ghost">New entry</button>
+          </div>
         </form>
         <form id="random-words-form" data-endpoint="/dictionary/random" data-method="GET" data-auth="true" data-result-target="dictionary-result">
           <h3>Suggestions</h3>
@@ -153,7 +148,7 @@
           <button id="random-submit" type="submit" class="ghost">Next 10 random words</button>
         </form>
         <div id="dictionary-result" class="result"></div>
-        <form id="definition-form" data-endpoint="/dictionary/:id" data-method="PUT" data-auth="true" data-result-target="definition-result">
+        <form id="definition-form" data-endpoint="/dictionary/:id" data-method="PUT" data-auth="true" data-result-target="definition-result" class="is-hidden">
           <input id="definition-language-id" type="hidden" name="language_id" />
           <input id="definition-id" type="hidden" name="id" />
           <label><span id="label-word">Word</span><input name="word" type="text" data-clafrica="true"></label>
@@ -164,7 +159,38 @@
           <label><span id="label-translation-en">Translation in English</span><textarea name="translation_en" rows="2"></textarea></label>
           <button type="submit">Save definition</button>
         </form>
-        <div id="definition-result" class="result"></div>
+        <div id="definition-result" class="result is-hidden"></div>
+
+        <!-- Sense-First Editor -->
+        <div id="sense-editor-container" class="is-hidden">
+          <h3 id="sense-editor-title">Edit Word Entry (Sense-First)</h3>
+          <div class="editor-controls">
+            <button id="sense-editor-close" type="button" class="ghost small">← Back to list</button>
+            <button id="sense-editor-add-sense" type="button" class="ghost small">+ Add Sense</button>
+          </div>
+          
+          <div class="word-entry-header">
+            <input id="sense-word-entry-id" type="hidden" />
+            <label>Lemma (Headword)<input id="sense-lemma" type="text" data-clafrica="true" required /></label>
+            <label>Part of Speech<input id="sense-pos" type="text" placeholder="noun, verb, adj..." /></label>
+            <label>Pronunciation<input id="sense-pronunciation" type="text" data-clafrica="true" /></label>
+            <label>Status
+              <select id="sense-status">
+                <option value="draft">Draft</option>
+                <option value="published">Published</option>
+              </select>
+            </label>
+          </div>
+
+          <div id="senses-container" class="senses-container"></div>
+
+          <div class="editor-actions">
+            <button id="sense-editor-save" type="button">Save Word Entry</button>
+            <button id="sense-editor-cancel" type="button" class="ghost">Cancel</button>
+          </div>
+          <div id="sense-editor-result" class="result"></div>
+        </div>
+
         <form data-endpoint="/dictionary/reseed" data-method="POST" data-auth="true" data-result-target="reseed-result" class="is-hidden">
           <h3>Reseed word list (Admin)</h3>
           <p class="hint">Clears existing words and reloads from the word list file.</p>
@@ -198,12 +224,6 @@
           <button type="submit">Update role</button>
         </form>
         <div id="role-result" class="result"></div>
-        <form data-endpoint="/auth/invites" data-method="POST" data-auth="true" data-result-target="invite-result-users">
-          <h3>Create invite codes</h3>
-          <label>Quantity<input name="quantity" type="number" value="1" min="1" max="10" /></label>
-          <button type="submit">Create invite</button>
-        </form>
-        <div id="invite-result-users" class="result"></div>
       </div>
     </section>
 
@@ -237,5 +257,6 @@
     </div>
   </div>
   <script src="/static/app.js"></script>
+  <script src="/static/sense-editor.js"></script>
 </body>
 </html>

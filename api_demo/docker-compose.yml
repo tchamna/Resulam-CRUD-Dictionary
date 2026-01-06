@@ -16,7 +16,7 @@ services:
       - api_demo_db:/var/lib/postgresql/data
       - ./docker/postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:5433:5432"
     command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf"]
 
   web:
@@ -28,6 +28,8 @@ services:
       REFRESH_TOKEN_EXPIRES_DAYS: ${REFRESH_TOKEN_EXPIRES_DAYS:-0}
       SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-superadmin@example.com}
       SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:-superadmin}
+      AUTO_SEED_ON_START: ${AUTO_SEED_ON_START:-true}
+      AUTO_CREATE_SUPER_ADMIN: ${AUTO_CREATE_SUPER_ADMIN:-true}
       WORD_LIST_PATH: ${WORD_LIST_PATH:-nufi_word_list.txt}
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost:8000}
       SMTP_HOST: ${SMTP_HOST:-}

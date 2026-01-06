@@ -38,8 +38,9 @@ def create_app() -> FastAPI:
 
 	# DB init
 	Base.metadata.create_all(bind=engine)
-	seed_dictionary(SessionLocal, project_dir, settings.WORD_LIST_PATH)
-	if settings.SUPER_ADMIN_EMAIL and settings.SUPER_ADMIN_PASSWORD:
+	if settings.AUTO_SEED_ON_START:
+		seed_dictionary(SessionLocal, project_dir, settings.WORD_LIST_PATH)
+	if settings.AUTO_CREATE_SUPER_ADMIN and settings.SUPER_ADMIN_EMAIL and settings.SUPER_ADMIN_PASSWORD:
 		db = SessionLocal()
 		try:
 			email = settings.SUPER_ADMIN_EMAIL.lower()

@@ -15,6 +15,8 @@ class Settings:
 
 	SUPER_ADMIN_EMAIL = os.getenv("SUPER_ADMIN_EMAIL", "superadmin@example.com")
 	SUPER_ADMIN_PASSWORD = os.getenv("SUPER_ADMIN_PASSWORD", "superadmin")
+	AUTO_SEED_ON_START = os.getenv("AUTO_SEED_ON_START", "false").lower() == "true"
+	AUTO_CREATE_SUPER_ADMIN = os.getenv("AUTO_CREATE_SUPER_ADMIN", "false").lower() == "true"
 
 	WORD_LIST_PATH = os.getenv("WORD_LIST_PATH", "nufi_word_list.txt")
 
