@@ -75,11 +75,15 @@ def create_app() -> FastAPI:
 
 	@app.get("/")
 	def ui():
-		return FileResponse(static_dir / "index.html")
+		return FileResponse(static_dir / "temporary.html")
 
 	@app.get("/admin")
 	def admin_ui():
-		return FileResponse(static_dir / "index.html")
+		return FileResponse(static_dir / "temporary.html")
+
+	@app.get("/temporary")
+	def temporary_ui():
+		return FileResponse(static_dir / "temporary.html")
 
 	@app.get("/health")
 	def health():
