@@ -22,14 +22,266 @@ const POS_OPTIONS = [
   { value: 'affix', label: 'Affix' },
   { value: 'other', label: 'Other' }
 ];
+const POS_OPTIONS_NUFI = [
+  { value: '', label: 'Select POS...' },
+  { value: 'noun', label: 'Zēn' },
+  { value: 'verb', label: "Mbǎ'ghəə" },
+  { value: 'adjective', label: 'Pǎtzēn' },
+  { value: 'adverb', label: 'Ntōoghəə (Adv.)' },
+  { value: 'pronoun', label: 'Cōptúzēn' },
+  { value: 'preposition', label: 'Nkôsi (Prep.)' },
+  { value: 'conjunction', label: 'Ndiaghəə' },
+  { value: 'other', label: '-' }
+];
+const OTHER_FORMS_OPTIONS = [
+  { value: 'plural', labelKey: 'otherFormsPlural' },
+  { value: 'other_variant', labelKey: 'otherFormsVariant' }
+];
+const RELATION_OPTIONS = [
+  { value: 'synonym', label: 'Synonym' },
+  { value: 'antonym', label: 'Antonym' },
+  { value: 'homonym', label: 'Homonym' },
+  { value: 'variant', label: 'Variant' },
+  { value: 'hypernym', label: 'Hypernym' },
+  { value: 'hyponym', label: 'Hyponym' }
+];
+const RELATION_OPTIONS_NUFI = [
+  { value: 'synonym', label: 'Synonym' },
+  { value: 'antonym', label: 'Antonym' },
+  { value: 'homonym', label: 'Homonym' }
+];
 const TRANSLATION_LANGS = [
   { value: 'fr', label: 'French (fr)' },
-  { value: 'en', label: 'English (en)' }
+  { value: 'en', label: 'English (en)' },
+  { value: 'nufi', label: 'Nufi (nufi)' }
 ];
 
 const DEFAULT_RANDOM_LIMIT = 10;
 const PASSWORD_RULES_TEXT = 'Password must be at least 5 characters and include a letter and a number.';
 const AUTO_SAVE_IDLE_MS = 3 * 60 * 1000;
+const UI_STRINGS = {
+  en: {
+    tools: 'Tools',
+    language: 'Language',
+    selectLanguage: 'Select language...',
+    enableClafrica: 'Enable Clafrica input',
+    searchAndList: 'Search and list',
+    searchHint: 'Find entries and load them into the editor.',
+    exactMatch: 'Exact match',
+    searchLemma: 'Search lemma',
+    all: 'All',
+    searchDefined: 'Already defined',
+    searchUndefined: 'Not yet defined',
+    draft: 'Draft',
+    published: 'Published',
+    randomSuggestions: 'Random suggestions',
+    randomHint: 'Pick a word and start defining it.',
+    next: 'Next',
+    loading: 'Loading...',
+    noRandom: 'No random words found.',
+    noEntries: 'No entries found.',
+    noMatches: 'No matches found.',
+    noSeeded: 'No word list seeded for this language yet.',
+    createEntry: 'Create entry',
+    define: 'Define',
+    modify: 'Modify',
+    wordEntry: 'Word Entry',
+    lemmaPlaceholder: 'Lemma / Headword',
+    selectPos: 'Select POS...',
+    pronunciation: 'Pronunciation',
+    otherForms: 'Other forms (plural, variant, alt spelling)',
+    otherFormsSelect: 'Other form',
+    otherFormsPlural: 'Plural',
+    otherFormsVariant: 'Other variant',
+    otherFormsValue: 'Value',
+    otherFormsRequired: 'Enter the selected form before saving.',
+    otherFormsAdd: '+ Add form',
+    saveEntry: 'Save Entry',
+    saving: 'Saving...',
+    autoSaving: 'Auto-saving...',
+    saved: 'Saved to database.',
+    autoSaved: 'Auto-saved.',
+    remove: 'Remove',
+    addExample: '+ Add Example',
+    addTranslation: '+ Add Translation',
+    addRelation: '+ Add Relation',
+    addSense: '+ Add Sense',
+    definition: 'Definition',
+    examples: 'Examples (drag to reorder)',
+    translations: 'Translations (drag to reorder)',
+    relations: 'Relations (drag to reorder)',
+    visitorPreview: 'Visitor View Preview',
+    formsLabel: 'Forms',
+    noDefinition: 'No definition yet...',
+    exampleShort: 'Ex',
+    relationsLabel: 'Relations',
+    anonymous: 'Anonymous',
+    signedInAs: 'Signed in as',
+    logout: 'Log out',
+    loginSignup: 'Log in / Sign up',
+    welcomeTitle: 'Welcome',
+    welcomeText: 'You can contribute without logging in. Create an account to track your contributions.',
+    continueAnonymous: 'Continue without account',
+    login: 'Log in',
+    signup: 'Sign up',
+    email: 'Email',
+    password: 'Password',
+    confirmPassword: 'Confirm password',
+    createAccount: 'Create account',
+    authWaiting: 'Please wait...',
+    enableClafricaShort: 'Enable Clafrica',
+    accessTokenOptional: 'Access token (optional)'
+  },
+
+  fr: {
+    tools: 'Outils',
+    language: 'Langue',
+    selectLanguage: 'Choisir une langue...',
+    enableClafrica: 'Activer la saisie Clafrica',
+    searchAndList: 'Rechercher et lister',
+    searchHint: 'Recherchez des entrées et chargez-les dans l’éditeur.',
+    exactMatch: 'Correspondance exacte',
+    searchLemma: 'Rechercher un mot (lemme)',
+    all: 'Tout',
+    searchDefined: 'Déjà défini',
+    searchUndefined: 'Pas encore défini',
+    draft: 'Brouillon',
+    published: 'Publié',
+    randomSuggestions: 'Suggestions aléatoires',
+    randomHint: 'Choisissez un mot et commencez à le définir.',
+    next: 'Suivant',
+    loading: 'Chargement...',
+    noRandom: 'Aucun mot aléatoire trouvé.',
+    noEntries: 'Aucune entrée trouvée.',
+    noMatches: 'Aucune correspondance.',
+    noSeeded: 'Aucune liste de mots n’a été importée pour cette langue.',
+    createEntry: 'Créer une entrée',
+    define: 'Définir',
+    modify: 'Modifier',
+    wordEntry: 'Entrée de mot',
+    lemmaPlaceholder: 'Lemme / mot-clé',
+    selectPos: 'Choisir la catégorie grammaticale...',
+    pronunciation: 'Prononciation',
+    otherForms: 'Autres formes (pluriel, variante, orthographe)',
+    otherFormsSelect: 'Autre forme',
+    otherFormsPlural: 'Pluriel',
+    otherFormsVariant: 'Autre variante',
+    otherFormsValue: 'Valeur',
+    otherFormsRequired: 'Renseignez la forme sélectionnée avant d’enregistrer.',
+    otherFormsAdd: '+ Ajouter une forme',
+    saveEntry: 'Enregistrer',
+    saving: 'Enregistrement...',
+    autoSaving: 'Enregistrement auto...',
+    saved: 'Enregistré dans la base.',
+    autoSaved: 'Enregistré automatiquement.',
+    remove: 'Supprimer',
+    addExample: '+ Ajouter un exemple',
+    addTranslation: '+ Ajouter une traduction',
+    addRelation: '+ Ajouter une relation',
+    addSense: '+ Ajouter un sens',
+    definition: 'Définition',
+    examples: 'Exemples (glisser pour réordonner)',
+    translations: 'Traductions (glisser pour réordonner)',
+    relations: 'Relations (glisser pour réordonner)',
+    visitorPreview: 'Aperçu visiteur',
+    formsLabel: 'Formulaires',
+    noDefinition: 'Aucune définition pour le moment...',
+    exampleShort: 'Ex',
+    relationsLabel: 'Relations',
+    anonymous: 'Anonyme',
+    signedInAs: 'Connecté en tant que',
+    logout: 'Se déconnecter',
+    loginSignup: 'Se connecter / S’inscrire',
+    welcomeTitle: 'Bienvenue',
+    welcomeText: 'Vous pouvez contribuer sans vous connecter. Créez un compte pour suivre vos contributions.',
+    continueAnonymous: 'Continuer sans compte',
+    login: 'Se connecter',
+    signup: 'S’inscrire',
+    email: 'E-mail',
+    password: 'Mot de passe',
+    confirmPassword: 'Confirmer le mot de passe',
+    createAccount: 'Créer un compte',
+    authWaiting: 'Veuillez patienter...',
+    enableClafricaShort: 'Activer Clafrica',
+    accessTokenOptional: 'Jeton d’accès (optionnel)'
+  },
+
+  nufi: {
+  "tools": "Zúmfɑ'",
+  "language": "Ghəə",
+  "selectLanguage": "Lǎh tɑ' ghəə...",
+  "enableClafrica": "Lʉ̌' nkǒ'tiē Clafrica",
+  "searchAndList": "Cāk njâ'wū",
+  "searchHint": "Cāk njâ'wú ten le mbáhsí.",
+  "exactMatch": "Kwɑ' njâ'wū le",
+  "searchLemma": "Cāk njâ'wū",
+  "all": "Nkwee njá'zū",
+  "searchDefined": "Pó yá' pahsi",
+  "searchUndefined": "Pō yǎt si pahsi",
+  "draft": "Fʉfat (Brouillon)",
+  "published": "Yáá yá' ghěn nzɑ̄",
+  "randomSuggestions": "Njá'zū mvá'mvā'",
+  "randomHint": "Tīā tɑ' njâ'wū mbáhsí, lɑ̄ ncōp pàhsì.",
+  "next": "Ghěnmbhì",
+  "loading": "Cʉ̄cō'ò pīɑ̄...",
+  "noRandom": "N kɑ' yīī səə̄ njâ'wū.",
+  "noEntries": "N kɑ' yīī səə̄ njâ'wū.",
+  "noMatches": "Səə̄wū",
+  "noSeeded": "Səə̄ njá'zū yǎt sì bɑ̄ nɑ́ béé ghəə lè",
+  "createEntry": "Pàhsǐ njâ'wū",
+  "define": "Pàhsì",
+  "modify": "Cōp pàhsì",
+  "senseLabel": "Nzhiyū'",
+  "wordEntry": "Njâ'wū",
+  "lemmaPlaceholder": "Njâ'wū lah mbáhsí",
+  "selectPos": "Ntīē njâ'wū",
+  "pronunciation": "Mbʉ́ɑ́ lah ncēh",
+  "otherForms": "Yɑ̄ɑ̄ mǒ' zú séè lè pɑ́' kəə lāmɑ, lɑ̄ mǒ mbʉ́ɑ́ lah ntíé lɑ́",
+  "otherFormsSelect": "Zimó'",
+  "otherFormsPlural": "Kəə lāmɑ",
+  "otherFormsVariant": "Mǒ' mbʉ́ɑ́ lah ngə́ə́, lɑ̄ ntíé",
+  "otherFormsValue": "Pahsi",
+  "otherFormsRequired": "Lǎh tɑ' zímó' mè",
+  "otherFormsAdd": "+ Shwǐ' zímó'",
+  "saveEntry": "Lǒ' njâ'wū",
+  "saving": "Yáá mɑngén nta'...",
+  "autoSaving": "Yáá mɑngén nta' ndǒk i...",
+  "saved": "Yáá ghěn nta'.",
+  "autoSaved": "Yáá ghěn nta' ndǒk i.",
+  "remove": "Cwāh ngwɑ̄'",
+  "addExample": "+ Shwǐ' fôhni",
+  "addTranslation": "+ Shwǐ' pahsi",
+  "addRelation": "+ Shwǐ' fóhmbʉ̄ɑ̄, túmā' ...",
+  "addSense": "+ Shwǐ' nzhiyū'",
+  "definition": "Pahsi",
+  "examples": "Fôhni",
+  "translations": "Fāh mɑ ghəə̄ngen",
+  "relations": "...",
+  "visitorPreview": "Fě'è tɑ́ yáá ìmbɑ̄",
+  "formsLabel": "Ncəə̄tie",
+  "noDefinition": "Pō yǎt si pahsi...",
+  "exampleShort": "Fôhni",
+  "relationsLabel": "Fóhmbʉ̄ɑ̄, túmā' ...",
+  "anonymous": "Wen si zēn",
+  "signedInAs": "Connecté en tant que",
+  "logout": "Tōm",
+  "loginSignup": "Cō / Ŋwɑ̌' zēn zǒ",
+  "welcomeTitle": "Sɑ̌' pəpē'",
+  "welcomeText": "Vous pouvez contribuer sans vous connecter. Créez un compte pour suivre vos contributions.",
+  "continueAnonymous": "Continuer sans compte",
+  "login": "Se connecter",
+  "signup": "S’inscrire",
+  "email": "E-mail",
+  "password": "Mot de passe",
+  "confirmPassword": "Confirmer le mot de passe",
+  "createAccount": "Créer un compte",
+  "authWaiting": "Nɑ̄' mbīɑ̄...",
+  "enableClafricaShort": "Lʉ̌' Clafrica",
+  "accessTokenOptional": "Token (optional)"
+}
+
+
+};
 
 const createSense = () => ({
   pos: '',
@@ -38,6 +290,24 @@ const createSense = () => ({
   translations: [{ lang: 'fr', text: '' }],
   relations: [{ type: 'synonym', text: '' }]
 });
+
+const normalizeLemmaKey = (value) => {
+  if (!value) return '';
+  const raw = String(value).trim();
+  if (!raw) return '';
+  try {
+    return raw.normalize('NFC').toLowerCase();
+  } catch {
+    return raw.toLowerCase();
+  }
+};
+
+const splitLegacyList = (value) => (
+  String(value || '')
+    .split(/[;,]/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+);
 
 const normalizeExamples = (examples) => {
   const list = Array.isArray(examples) ? examples : [];
@@ -93,6 +363,38 @@ const mapRelationsFromApi = (relations) => {
   return mapped.length ? mapped : [{ type: 'synonym', text: '' }];
 };
 
+const parseFormsField = (raw) => {
+  if (!raw) return [];
+  const trimmed = String(raw).trim();
+  if (!trimmed) return [];
+  return trimmed.split(';').map((chunk) => chunk.trim()).filter(Boolean).map((chunk) => {
+    const match = chunk.match(/^(plural|other_variant|variant)\s*:\s*(.+)$/i);
+    if (match) {
+      const type = match[1].toLowerCase() === 'variant' ? 'other_variant' : match[1].toLowerCase();
+      return { type, text: match[2].trim() };
+    }
+    const lowered = chunk.toLowerCase();
+    if (lowered === 'plural' || lowered === 'other_variant' || lowered === 'variant') {
+      const type = lowered === 'variant' ? 'other_variant' : lowered;
+      return { type, text: '' };
+    }
+    return { type: 'other_variant', text: chunk };
+  });
+};
+
+const serializeFormsField = (forms) => {
+  const list = Array.isArray(forms) ? forms : [];
+  return list
+    .map((form) => {
+      const type = String(form?.type || '').trim();
+      const text = String(form?.text || '').trim();
+      if (!type || !text) return '';
+      return `${type}:${text}`;
+    })
+    .filter(Boolean)
+    .join('; ');
+};
+
 const mapWordEntryToDraft = (entry) => {
   const senses = Array.isArray(entry?.senses) ? entry.senses : [];
   const mappedSenses = senses.length
@@ -111,8 +413,10 @@ const mapWordEntryToDraft = (entry) => {
     word: entry?.lemma_raw || '',
     pos: entry?.pos || '',
     pronunciation: entry?.pronunciation || '',
-    status: entry?.status || 'draft',
-    forms: entry?.notes || '',
+    forms: (() => {
+      const formsList = parseFormsField(entry?.notes || '');
+      return formsList.length ? formsList : [{ type: 'plural', text: '' }];
+    })(),
     senses: mappedSenses
   };
 };
@@ -128,14 +432,17 @@ const normalizeSense = (sense) => ({
 const normalizeEntry = (draft) => {
   const senses = Array.isArray(draft?.senses) ? draft.senses : [];
   const normalizedSenses = senses.length ? senses.map(normalizeSense) : [createSense()];
+  const parsedForms = parseFormsField(draft?.notes || '');
   return {
     entryId: draft?.entryId || null,
     languageId: draft?.languageId || '',
     word: draft?.word || '',
     pos: draft?.pos || '',
     pronunciation: draft?.pronunciation || '',
-    status: draft?.status || 'draft',
-    forms: draft?.forms || '',
+    forms: (() => {
+      const formsList = Array.isArray(draft?.forms) ? draft.forms : parsedForms;
+      return formsList.length ? formsList : [{ type: 'plural', text: '' }];
+    })(),
     senses: normalizedSenses
   };
 };
@@ -205,8 +512,8 @@ const buildPayload = (entry) => {
     lemma_raw: entry.word.trim(),
     pos: entry.pos.trim() || null,
     pronunciation: entry.pronunciation.trim() || null,
-    notes: entry.forms.trim() || null,
-    status: entry.status,
+    notes: serializeFormsField(entry.forms) || null,
+    status: 'draft',
     senses
   };
 };
@@ -232,6 +539,7 @@ const styles = {
     border: '1px solid rgba(23,26,34,0.12)',
     boxShadow: '0 16px 30px rgba(16,20,30,0.12)',
     minHeight: '100%',
+    maxHeight: 'calc(100vh - 48px)',
     overflow: 'hidden',
     boxSizing: 'border-box',
     display: 'flex',
@@ -244,7 +552,8 @@ const styles = {
     justifyContent: 'center'
   },
   leftMenuBody: {
-    flex: '0 0 auto',
+    flex: '1 1 auto',
+    minHeight: 0,
     overflowY: 'auto',
     display: 'grid',
     gap: '14px',
@@ -252,7 +561,8 @@ const styles = {
     alignContent: 'start'
   },
   leftMenuFooter: {
-    marginTop: '12px'
+    marginTop: 'auto',
+    paddingTop: '12px'
   },
   leftMenuCollapsedLabel: {
     writingMode: 'vertical-rl',
@@ -346,6 +656,15 @@ const styles = {
     background: 'rgba(23,26,34,0.06)',
     color: '#1b1f2a',
     border: '1px solid rgba(23,26,34,0.12)',
+    borderRadius: '10px',
+    cursor: 'pointer',
+    fontSize: '13px'
+  },
+  buttonPrimary: {
+    padding: '8px 12px',
+    background: '#2f8f4e',
+    color: '#fff',
+    border: '1px solid #267c42',
     borderRadius: '10px',
     cursor: 'pointer',
     fontSize: '13px'
@@ -493,6 +812,9 @@ const styles = {
 };
 
 const DictionaryApp = () => {
+  const baseLocale = (navigator.language || 'en').toLowerCase().startsWith('fr') ? 'fr' : 'en';
+  const [locale, setLocale] = useState(baseLocale);
+  const t = (key) => UI_STRINGS[locale]?.[key] || UI_STRINGS.en[key] || key;
   const [entry, setEntry] = useState(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -538,12 +860,51 @@ const DictionaryApp = () => {
   const [clafricaEnabled, setClafricaEnabled] = useState(true);
   const [clafricaStatus, setClafricaStatus] = useState('');
   const [leftMenuMinHeight, setLeftMenuMinHeight] = useState(null);
+  const [isNarrow, setIsNarrow] = useState(false);
   const clafricaMapRef = useRef({});
   const clafricaMaxLenRef = useRef(0);
   const clafricaPrefixesRef = useRef(new Set());
   const formSideRef = useRef(null);
   const autoSaveTimerRef = useRef(null);
   const dirtyRef = useRef(false);
+  const selectedLanguage = languages.find((lang) => String(lang.id) === String(entry.languageId));
+  const useNufi = selectedLanguage && String(selectedLanguage.name || '').toLowerCase() === 'nufi';
+  const posOptions = (useNufi ? POS_OPTIONS_NUFI : POS_OPTIONS).map((option) => (
+    option.value === '' ? { ...option, label: t('selectPos') } : option
+  ));
+  const otherFormsOptions = OTHER_FORMS_OPTIONS.map((option) => ({
+    ...option,
+    label: t(option.labelKey)
+  }));
+  const otherFormsLabel = (value) => {
+    const match = otherFormsOptions.find((option) => option.value === value);
+    return match ? match.label : value;
+  };
+  const relationOptions = useNufi ? RELATION_OPTIONS_NUFI : RELATION_OPTIONS;
+  const posLabel = (value) => {
+    const match = posOptions.find((option) => option.value === value);
+    return match ? match.label : value;
+  };
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 900px)');
+    const updateMedia = () => setIsNarrow(mediaQuery.matches);
+    updateMedia();
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', updateMedia);
+      return () => mediaQuery.removeEventListener('change', updateMedia);
+    }
+    mediaQuery.addListener(updateMedia);
+    return () => mediaQuery.removeListener(updateMedia);
+  }, []);
+
+  useEffect(() => {
+    if (useNufi) {
+      setLocale('nufi');
+    } else {
+      setLocale(baseLocale);
+    }
+  }, [useNufi, baseLocale]);
 
   useEffect(() => {
     try {
@@ -671,6 +1032,13 @@ const DictionaryApp = () => {
     }
     return Math.min(rawValue, 200);
   };
+  const getDefinedCount = (row) => {
+    const senses = Array.isArray(row?.senses) ? row.senses : [];
+    return senses.filter((sense) => {
+      const text = sense && sense.definition_text ? String(sense.definition_text).trim() : '';
+      return text.length > 0;
+    }).length;
+  };
 
   const fetchRandomWords = async (limitOverride) => {
     if (!entry.languageId) {
@@ -690,8 +1058,9 @@ const DictionaryApp = () => {
         setRandomWords([]);
         return [];
       } else if (Array.isArray(data)) {
-        setRandomWords(data);
-        return data;
+        const sorted = [...data].sort((a, b) => getDefinedCount(a) - getDefinedCount(b));
+        setRandomWords(sorted);
+        return sorted;
       } else {
         setRandomWords([]);
         return [];
@@ -759,36 +1128,124 @@ const DictionaryApp = () => {
     setSearchLoading(true);
     setSearchError('');
     const limit = resolveSearchLimit(options.limit ?? searchLimit);
-    const params = new URLSearchParams({
-      language_id: String(entry.languageId),
-      limit: String(limit),
-      offset: '0'
-    });
     const termValue = options.term ?? searchTerm;
     const trimmedTerm = termValue ? termValue.trim() : '';
-    if (trimmedTerm) {
-      params.set('search', trimmedTerm);
-    }
     const statusValue = options.status ?? searchStatus;
-    if (statusValue && statusValue !== 'all') {
-      params.set('status', statusValue);
-    }
     try {
-      const response = await fetch(`/dictionary/word-entries?${params.toString()}`);
-      const data = await response.json().catch(() => []);
-      if (!response.ok) {
-        const detail = data?.detail || `Error ${response.status}.`;
-        setSearchError(detail);
-        setSearchResults([]);
-        setLanguageHasEntries(null);
-      } else if (Array.isArray(data)) {
-        let list = data;
-        const term = trimmedTerm;
-        if (exactMatch && term) {
-          list = list.filter((row) => row && row.lemma_raw === term);
+      const fetchLegacyWords = async (status) => {
+        if (!status) return [];
+        const pageLimit = 200;
+        const maxItems = 20000;
+        let offset = 0;
+        let list = [];
+        while (true) {
+          const params = new URLSearchParams({
+            language_id: String(entry.languageId),
+            status,
+            limit: String(pageLimit),
+            offset: String(offset)
+          });
+          if (trimmedTerm) {
+            params.set('search', trimmedTerm);
+          }
+          if (exactMatch) {
+            params.set('exact', 'true');
+          }
+          const response = await fetch(`/dictionary?${params.toString()}`);
+          const data = await response.json().catch(() => []);
+          if (!response.ok || !Array.isArray(data)) {
+            break;
+          }
+          if (!data.length) {
+            break;
+          }
+          list = list.concat(data);
+          if (data.length < pageLimit || list.length >= maxItems) {
+            break;
+          }
+          offset += pageLimit;
+        }
+        return list;
+      };
+
+      const fetchPage = async (offset, pageLimit) => {
+        const params = new URLSearchParams({
+          language_id: String(entry.languageId),
+          limit: String(pageLimit),
+          offset: String(offset)
+        });
+        if (trimmedTerm) {
+          params.set('search', trimmedTerm);
+        }
+        const response = await fetch(`/dictionary/word-entries?${params.toString()}`);
+        const data = await response.json().catch(() => []);
+        return { response, data };
+      };
+      let list = [];
+      if (statusValue === 'defined' || statusValue === 'undefined') {
+        const pageLimit = 200;
+        const maxItems = 20000;
+        let offset = 0;
+        while (true) {
+          const { response, data } = await fetchPage(offset, pageLimit);
+          if (!response.ok) {
+            const detail = data?.detail || `Error ${response.status}.`;
+            setSearchError(detail);
+            setSearchResults([]);
+            setLanguageHasEntries(null);
+            return;
+          }
+          if (!Array.isArray(data) || !data.length) {
+            break;
+          }
+          list = list.concat(data);
+          if (data.length < pageLimit || list.length >= maxItems) {
+            break;
+          }
+          offset += pageLimit;
+        }
+      } else {
+        const { response, data } = await fetchPage(0, limit);
+        if (!response.ok) {
+          const detail = data?.detail || `Error ${response.status}.`;
+          setSearchError(detail);
+          setSearchResults([]);
+          setLanguageHasEntries(null);
+          return;
+        }
+        list = Array.isArray(data) ? data : [];
+      }
+      const legacyDefined = await fetchLegacyWords('defined');
+      const legacyDefinedMap = new Map(
+        legacyDefined
+          .filter((row) => String(row?.definition || '').trim())
+          .map((row) => [normalizeLemmaKey(row.word), row])
+      );
+      if (list.length) {
+        list = list.map((row) => {
+          const key = normalizeLemmaKey(row?.lemma_raw);
+          const legacyRow = legacyDefinedMap.get(key);
+          return legacyRow ? { ...row, _legacyRow: legacyRow } : row;
+        });
+      }
+      if (list.length) {
+        const hasDefinition = (row) => {
+          const senses = Array.isArray(row?.senses) ? row.senses : [];
+          return senses.some((sense) => {
+            const text = sense && sense.definition_text ? String(sense.definition_text).trim() : '';
+            return text.length > 0;
+          });
+        };
+        if (exactMatch && trimmedTerm) {
+          list = list.filter((row) => row && row.lemma_raw === trimmedTerm);
+        }
+        if (statusValue === 'defined') {
+          list = list.filter((row) => hasDefinition(row) || row?._legacyRow);
+        } else if (statusValue === 'undefined') {
+          list = list.filter((row) => !hasDefinition(row) && !row?._legacyRow);
         }
         setSearchResults(list);
-        if (!term && (statusValue === 'all')) {
+        if (!trimmedTerm && (statusValue === 'all')) {
           setLanguageHasEntries(list.length > 0);
         }
       } else {
@@ -934,6 +1391,32 @@ const DictionaryApp = () => {
     });
   };
 
+  const updateForm = (formIndex, field, value) => {
+    markDirty();
+    setEntry((prev) => {
+      const forms = Array.isArray(prev.forms) ? prev.forms : [];
+      const nextForms = forms.map((form, idx) => (idx === formIndex ? { ...form, [field]: value } : form));
+      return { ...prev, forms: nextForms };
+    });
+  };
+
+  const addForm = () => {
+    markDirty();
+    setEntry((prev) => ({
+      ...prev,
+      forms: [...(Array.isArray(prev.forms) ? prev.forms : []), { type: 'plural', text: '' }]
+    }));
+  };
+
+  const removeForm = (formIndex) => {
+    markDirty();
+    setEntry((prev) => {
+      const forms = Array.isArray(prev.forms) ? prev.forms : [];
+      const nextForms = forms.filter((_, idx) => idx !== formIndex);
+      return { ...prev, forms: nextForms.length ? nextForms : [{ type: 'plural', text: '' }] };
+    });
+  };
+
   const storeFocus = (payload) => (event) => {
     setLastFocused({ el: event.target, ...payload });
   };
@@ -993,6 +1476,18 @@ const DictionaryApp = () => {
     if (payload.kind === 'search') {
       setSearchTerm(value);
     }
+  };
+  const clafricaAllowed = (payload) => {
+    if (!clafricaEnabled) {
+      return false;
+    }
+    if (payload.kind === 'translation') {
+      return false;
+    }
+    if (payload.kind === 'example' && payload.field === 'translation') {
+      return false;
+    }
+    return true;
   };
 
   const applyClafricaToken = (token, allowPartialAtEnd) => {
@@ -1069,7 +1564,7 @@ const DictionaryApp = () => {
   };
 
   const handleTextKeyDown = (payload) => (event) => {
-    if (!clafricaEnabled || event.key !== ' ') {
+    if (!clafricaAllowed(payload) || event.key !== ' ') {
       return;
     }
     const target = event.target;
@@ -1089,7 +1584,9 @@ const DictionaryApp = () => {
   const handleTextChange = (payload) => (event) => {
     const target = event.target;
     const rawValue = target.value;
-    const replacement = applyClafricaOnInputValue(rawValue, target.selectionStart);
+    const replacement = clafricaAllowed(payload)
+      ? applyClafricaOnInputValue(rawValue, target.selectionStart)
+      : null;
     if (replacement) {
       updateFieldFromPayload(payload, replacement.value);
       setTimeout(() => {
@@ -1166,8 +1663,7 @@ const DictionaryApp = () => {
       word: lemma,
       pos: '',
       pronunciation: '',
-      status: 'draft',
-      forms: '',
+      forms: [{ type: 'plural', text: '' }],
       senses: [createSense()]
     }));
   };
@@ -1195,6 +1691,42 @@ const DictionaryApp = () => {
     return null;
   };
 
+  const mapLegacyWordToDraft = (legacyRow, languageId) => {
+    const lemma = (legacyRow?.word || '').trim();
+    const definition = String(legacyRow?.definition || '').trim();
+    const exampleText = String(legacyRow?.examples || '').trim();
+    const translations = [];
+    const translationFr = String(legacyRow?.translation_fr || '').trim();
+    const translationEn = String(legacyRow?.translation_en || '').trim();
+    if (translationFr) {
+      translations.push({ lang: 'fr', text: translationFr });
+    }
+    if (translationEn) {
+      translations.push({ lang: 'en', text: translationEn });
+    }
+    const relations = splitLegacyList(legacyRow?.synonyms || '').map((item) => ({
+      type: 'synonym',
+      text: item
+    }));
+    const examples = exampleText ? [{ text: exampleText, translation: '' }] : [];
+    const sense = {
+      ...createSense(),
+      definition,
+      examples: examples.length ? examples : [{ text: '', translation: '' }],
+      translations: translations.length ? translations : [{ lang: 'fr', text: '' }],
+      relations: relations.length ? relations : [{ type: 'synonym', text: '' }]
+    };
+    return {
+      entryId: null,
+      languageId,
+      word: lemma,
+      pos: '',
+      pronunciation: '',
+      forms: [{ type: 'plural', text: '' }],
+      senses: [sense]
+    };
+  };
+
   const applyRandomWord = async (wordRow) => {
     const lemma = (wordRow?.word || '').trim();
     if (!lemma) {
@@ -1205,6 +1737,30 @@ const DictionaryApp = () => {
     if (entryId) {
       setEntry((prev) => ({ ...prev, entryId }));
     }
+  };
+
+  const applyLegacyWord = async (legacyRow) => {
+    const lemma = (legacyRow?.word || '').trim();
+    if (!lemma || !entry.languageId) {
+      return;
+    }
+    dirtyRef.current = false;
+    clearAutoSaveTimer();
+    const nextEntry = mapLegacyWordToDraft(legacyRow, entry.languageId);
+    setEntry(nextEntry);
+    const entryId = await lookupWordEntryId(lemma, entry.languageId);
+    if (entryId) {
+      setEntry((prev) => ({ ...prev, entryId }));
+    }
+  };
+
+  const openSearchRow = (row) => {
+    const legacyRow = row?._legacyRow;
+    if (legacyRow && getDefinedCount(row) === 0) {
+      applyLegacyWord(legacyRow);
+      return;
+    }
+    loadWordEntry(row.id);
   };
 
   const handleAuthSubmit = async (event) => {
@@ -1273,7 +1829,9 @@ const DictionaryApp = () => {
     }
     let nextRow = null;
     if (randomWords.length) {
-      nextRow = randomWords.find((row) => row.word !== entry.word) || randomWords[0];
+      nextRow = randomWords.find((row) => row.word !== entry.word && getDefinedCount(row) === 0)
+        || randomWords.find((row) => row.word !== entry.word)
+        || randomWords[0];
       setRandomWords((prev) => prev.filter((row) => row.id !== nextRow.id));
     }
     if (!nextRow) {
@@ -1298,6 +1856,12 @@ const DictionaryApp = () => {
     if (!entry.word.trim()) {
       if (!auto) {
         setSaveStatus('Lemma is required before saving.');
+      }
+      return false;
+    }
+    if (Array.isArray(entry.forms) && entry.forms.some((form) => form.type && !String(form.text || '').trim())) {
+      if (!auto) {
+        setSaveStatus(t('otherFormsRequired'));
       }
       return false;
     }
@@ -1400,9 +1964,30 @@ const DictionaryApp = () => {
     ? 'No word list seeded for this language yet.'
     : 'No undefined words found.';
 
-  const containerStyle = leftMenuCollapsed
-    ? { ...styles.container, gridTemplateColumns: '60px minmax(0, 1.6fr) minmax(220px, 0.6fr)' }
-    : styles.container;
+  const activeFontFamily = useNufi
+    ? '"Charis SIL", "Sora", "Space Grotesk", serif'
+    : styles.container.fontFamily;
+  const baseContainerStyle = leftMenuCollapsed
+    ? { ...styles.container, fontFamily: activeFontFamily, gridTemplateColumns: '60px minmax(0, 1.6fr) minmax(220px, 0.6fr)' }
+    : { ...styles.container, fontFamily: activeFontFamily };
+  const containerStyle = isNarrow
+    ? {
+        ...baseContainerStyle,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '16px',
+        gridTemplateColumns: 'none',
+        maxWidth: '100%',
+        margin: '16px auto'
+      }
+    : baseContainerStyle;
+  const previewSideStyle = isNarrow
+    ? { ...styles.previewSide, position: 'static', width: '100%' }
+    : styles.previewSide;
+  const formSideStyle = isNarrow ? { ...styles.formSide, width: '100%' } : styles.formSide;
+  const sectionTitleStyle = useNufi ? { ...styles.sectionTitle, fontFamily: activeFontFamily } : styles.sectionTitle;
+  const onboardingTitleStyle = useNufi ? { ...styles.onboardingTitle, fontFamily: activeFontFamily } : styles.onboardingTitle;
+  const headwordStyle = useNufi ? { ...styles.headword, fontFamily: activeFontFamily } : styles.headword;
 
   const handleFormSideClick = () => {
     if (!leftMenuCollapsed) {
@@ -1414,33 +1999,33 @@ const DictionaryApp = () => {
     return (
       <div style={styles.onboardingWrap}>
         <div style={styles.onboardingCard}>
-          <h1 style={styles.onboardingTitle}>Welcome</h1>
+          <h1 style={onboardingTitleStyle}>{t('welcomeTitle')}</h1>
           <p style={styles.onboardingText}>
-            You can contribute without logging in. Create an account to track your contributions.
+            {t('welcomeText')}
           </p>
           <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
             <button style={styles.button} onClick={handleContinueAnonymous}>
-              Continue without account
+              {t('continueAnonymous')}
             </button>
             <button style={styles.buttonGhost} onClick={() => setAuthMode('login')}>
-              Log in
+              {t('login')}
             </button>
             <button style={styles.buttonGhost} onClick={() => setAuthMode('register')}>
-              Sign up
+              {t('signup')}
             </button>
           </div>
           <form onSubmit={handleAuthSubmit}>
             <input
               style={styles.input}
               type="email"
-              placeholder="Email"
+              placeholder={t('email')}
               value={authEmail}
               onChange={(e) => setAuthEmail(e.target.value)}
             />
             <input
               style={styles.input}
               type="password"
-              placeholder="Password"
+              placeholder={t('password')}
               value={authPassword}
               onChange={(e) => setAuthPassword(e.target.value)}
             />
@@ -1449,13 +2034,13 @@ const DictionaryApp = () => {
               <input
                 style={styles.input}
                 type="password"
-                placeholder="Confirm password"
+                placeholder={t('confirmPassword')}
                 value={authConfirm}
                 onChange={(e) => setAuthConfirm(e.target.value)}
               />
             )}
             <button style={styles.button} type="submit" disabled={authBusy}>
-              {authBusy ? 'Please wait...' : authMode === 'register' ? 'Create account' : 'Log in'}
+              {authBusy ? t('authWaiting') : authMode === 'register' ? t('createAccount') : t('login')}
             </button>
             {authStatus && <div style={styles.statusText}>{authStatus}</div>}
           </form>
@@ -1469,6 +2054,7 @@ const DictionaryApp = () => {
       <div
         style={{
           ...styles.leftMenu,
+          ...(isNarrow ? { width: '100%' } : {}),
           ...(leftMenuMinHeight ? { minHeight: `${leftMenuMinHeight}px` } : {}),
           ...(leftMenuCollapsed ? styles.leftMenuCollapsed : {})
         }}
@@ -1479,15 +2065,15 @@ const DictionaryApp = () => {
         }}
       >
         {leftMenuCollapsed ? (
-          <div style={styles.leftMenuCollapsedLabel}>Tools</div>
+          <div style={styles.leftMenuCollapsedLabel}>{t('tools')}</div>
         ) : (
           <>
             <div style={styles.sideMenuHeader}>
-              <strong>Tools</strong>
+              <strong>{t('tools')}</strong>
             </div>
             <div style={styles.leftMenuBody}>
               <div style={styles.sideMenuSection}>
-                <h3 style={styles.sectionTitle}>Language</h3>
+                <h3 style={sectionTitleStyle}>Language</h3>
                 <select
                   style={styles.input}
                   value={entry.languageId}
@@ -1506,7 +2092,7 @@ const DictionaryApp = () => {
                     checked={clafricaEnabled}
                     onChange={(e) => setClafricaEnabled(e.target.checked)}
                   />{' '}
-                  Enable Clafrica input
+                  {t('enableClafrica')}
                 </label>
                 {clafricaStatus && <div style={styles.statusText}>{clafricaStatus}</div>}
               </div>
@@ -1517,21 +2103,21 @@ const DictionaryApp = () => {
               ) : (
                 <>
                   <div style={styles.sideMenuSection}>
-                    <h3 style={styles.sectionTitle}>Search and list</h3>
+                    <h3 style={sectionTitleStyle}>{t('searchAndList')}</h3>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                      <p style={{ ...styles.randomMeta, margin: 0 }}>Find entries and load them into the editor.</p>
+                      <p style={{ ...styles.randomMeta, margin: 0 }}>{t('searchHint')}</p>
                       <label style={{ ...styles.randomMeta, margin: 0, whiteSpace: 'nowrap' }}>
                         <input
                           type="checkbox"
                           checked={exactMatch}
                           onChange={(e) => setExactMatch(e.target.checked)}
                         />{' '}
-                        Exact match
+                        {t('exactMatch')}
                       </label>
                     </div>
                     <input
                       style={styles.input}
-                      placeholder="Search lemma"
+                      placeholder={t('searchLemma')}
                       value={searchTerm}
                       onKeyDown={handleTextKeyDown({ kind: 'search' })}
                       onChange={handleTextChange({ kind: 'search' })}
@@ -1541,9 +2127,9 @@ const DictionaryApp = () => {
                       value={searchStatus}
                       onChange={(e) => setSearchStatus(e.target.value)}
                     >
-                      <option value="all">All</option>
-                      <option value="draft">Draft</option>
-                      <option value="published">Published</option>
+                      <option value="all">{t('all')}</option>
+                      <option value="defined">{t('searchDefined')}</option>
+                      <option value="undefined">{t('searchUndefined')}</option>
                     </select>
                     <input
                       type="number"
@@ -1562,7 +2148,7 @@ const DictionaryApp = () => {
                             style={{ ...styles.buttonGhost, marginLeft: '8px' }}
                             onClick={() => resetEntryForLemma(searchTerm)}
                           >
-                            Create entry
+                            {t('createEntry')}
                           </button>
                         ) : null}
                       </div>
@@ -1575,12 +2161,15 @@ const DictionaryApp = () => {
                             const text = sense && sense.definition_text ? String(sense.definition_text).trim() : '';
                             return text.length > 0;
                           }).length;
-                          const metaText = definedCount
-                            ? `defined, ${definedCount} sense${definedCount === 1 ? '' : 's'}`
+                          const legacyDefinition = row?._legacyRow?.definition;
+                          const legacyDefined = String(legacyDefinition || '').trim().length > 0;
+                          const displayCount = definedCount || (legacyDefined ? 1 : 0);
+                          const metaText = displayCount
+                            ? `defined, ${displayCount} sense${displayCount === 1 ? '' : 's'}`
                             : 'not defined';
-                          const normalized = Math.min(definedCount, 6) / 6;
+                          const normalized = Math.min(displayCount, 6) / 6;
                           const lightness = Math.round(85 - normalized * 35);
-                          const openStyle = definedCount
+                          const openStyle = displayCount
                             ? {
                                 ...styles.buttonGhost,
                                 background: `hsl(140, 45%, ${lightness}%)`,
@@ -1588,14 +2177,14 @@ const DictionaryApp = () => {
                                 color: '#0f2d1c'
                               }
                             : styles.buttonGhost;
-                          const actionLabel = definedCount ? 'Modify' : 'Define';
+                          const actionLabel = displayCount ? t('modify') : t('define');
                           return (
                             <div key={`entry-${row.id}`} style={styles.randomRow}>
                               <div>
                                 <div style={styles.randomWord}>{row.lemma_raw}</div>
                                 <div style={styles.randomMeta}>{metaText}</div>
                               </div>
-                              <button style={openStyle} onClick={() => loadWordEntry(row.id)}>{actionLabel}</button>
+                              <button style={openStyle} onClick={() => openSearchRow(row)}>{actionLabel}</button>
                             </div>
                           );
                         })}
@@ -1603,8 +2192,8 @@ const DictionaryApp = () => {
                     )}
                   </div>
                   <div style={styles.sideMenuSection}>
-                    <h3 style={styles.sectionTitle}>Random suggestions</h3>
-                    <p style={styles.randomMeta}>Pick a word and start defining it.</p>
+                    <h3 style={sectionTitleStyle}>{t('randomSuggestions')}</h3>
+                    <p style={styles.randomMeta}>{t('randomHint')}</p>
                     <div style={styles.rowSplit}>
                       <input
                         type="number"
@@ -1615,7 +2204,7 @@ const DictionaryApp = () => {
                         onChange={(e) => setRandomLimit(resolveRandomLimit(e.target.value))}
                       />
                       <button style={styles.buttonGhost} onClick={() => fetchRandomWords()}>
-                        {randomLoading ? 'Loading...' : `Next ${resolveRandomLimit(randomLimit)}`}
+                        {randomLoading ? t('loading') : `${t('next')} ${resolveRandomLimit(randomLimit)}`}
                       </button>
                     </div>
                     {randomError && <div style={styles.statusText}>{randomError}</div>}
@@ -1627,7 +2216,7 @@ const DictionaryApp = () => {
                         {randomWords.map((row) => (
                           <div key={`random-${row.id}`} style={styles.randomRow}>
                             <span style={styles.randomWord}>{row.word}</span>
-                            <button style={styles.buttonGhost} onClick={() => applyRandomWord(row)}>Define</button>
+                            <button style={styles.buttonGhost} onClick={() => applyRandomWord(row)}>{t('define')}</button>
                           </div>
                         ))}
                       </div>
@@ -1641,7 +2230,7 @@ const DictionaryApp = () => {
                 type="password"
                 name="token"
                 style={styles.input}
-                placeholder="Access token (optional)"
+                placeholder={t('accessTokenOptional')}
                 value={accessToken}
                 onChange={(e) => setAccessToken(e.target.value)}
               />
@@ -1649,25 +2238,25 @@ const DictionaryApp = () => {
           </>
         )}
       </div>
-      <div style={styles.formSide} onClick={handleFormSideClick} ref={formSideRef}>
+      <div style={formSideStyle} onClick={handleFormSideClick} ref={formSideRef}>
         <div style={styles.topBar}>
           <div style={styles.topBarGroup}>
             <span style={styles.randomMeta}>
-              {currentUserEmail ? `Signed in as ${currentUserEmail}` : 'Anonymous'}
+              {currentUserEmail ? `${t('signedInAs')} ${currentUserEmail}` : t('anonymous')}
             </span>
             {currentUserEmail ? (
-              <button style={styles.buttonGhost} onClick={handleLogout}>Log out</button>
+              <button style={styles.buttonGhost} onClick={handleLogout}>{t('logout')}</button>
             ) : (
-              <button style={styles.buttonGhost} onClick={openOnboarding}>Log in / Sign up</button>
+              <button style={styles.buttonGhost} onClick={openOnboarding}>{t('loginSignup')}</button>
             )}
           </div>
         </div>
         <div style={styles.card}>
-          <h3 style={styles.sectionTitle}>Word Entry</h3>
+          <h3 style={sectionTitleStyle}>{t('wordEntry')}</h3>
           <input
             name="word"
             style={styles.input}
-            placeholder="Lemma / Headword"
+            placeholder={t('lemmaPlaceholder')}
             value={entry.word}
             onFocus={storeFocus({ kind: 'entry', field: 'word' })}
             onKeyDown={handleTextKeyDown({ kind: 'entry', field: 'word' })}
@@ -1678,36 +2267,43 @@ const DictionaryApp = () => {
             value={entry.pos}
             onChange={(e) => updateEntryField('pos', e.target.value)}
           >
-            {POS_OPTIONS.map((option) => (
+            {posOptions.map((option) => (
               <option key={`entry-pos-${option.value}`} value={option.value}>{option.label}</option>
             ))}
           </select>
           <input
             name="pronunciation"
             style={styles.input}
-            placeholder="Pronunciation"
+            placeholder={t('pronunciation')}
             value={entry.pronunciation}
             onFocus={storeFocus({ kind: 'entry', field: 'pronunciation' })}
             onKeyDown={handleTextKeyDown({ kind: 'entry', field: 'pronunciation' })}
             onChange={handleTextChange({ kind: 'entry', field: 'pronunciation' })}
           />
-          <select
-            style={styles.input}
-            value={entry.status}
-            onChange={(e) => updateEntryField('status', e.target.value)}
-          >
-            <option value="draft">Draft</option>
-            <option value="published">Published</option>
-          </select>
-          <input
-            name="forms"
-            style={styles.input}
-            placeholder="Other forms (plural, variant, alt spelling)"
-            value={entry.forms}
-            onFocus={storeFocus({ kind: 'entry', field: 'forms' })}
-            onKeyDown={handleTextKeyDown({ kind: 'entry', field: 'forms' })}
-            onChange={handleTextChange({ kind: 'entry', field: 'forms' })}
-          />
+          <div style={styles.subSection}>
+            <h4 style={{ margin: '0 0 10px' }}>{t('otherForms')}</h4>
+            {(Array.isArray(entry.forms) ? entry.forms : []).map((form, formIndex) => (
+              <div key={`form-${formIndex}`} style={styles.rowWide}>
+                <select
+                  style={styles.input}
+                  value={form.type}
+                  onChange={(e) => updateForm(formIndex, 'type', e.target.value)}
+                >
+                  {otherFormsOptions.map((option) => (
+                    <option key={`forms-${formIndex}-${option.value}`} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+                <input
+                  style={styles.input}
+                  placeholder={otherFormsLabel(form.type)}
+                  value={form.text}
+                  onChange={(e) => updateForm(formIndex, 'text', e.target.value)}
+                />
+                <button style={styles.buttonGhost} onClick={() => removeForm(formIndex)}>{t('remove')}</button>
+              </div>
+            ))}
+            <button style={styles.button} onClick={addForm}>{t('otherFormsAdd')}</button>
+          </div>
         </div>
 
         {entry.senses.map((sense, senseIndex) => (
@@ -1727,22 +2323,22 @@ const DictionaryApp = () => {
                 >
                   Drag
                 </span>
-                <h3 style={styles.sectionTitle}>Sense {senseIndex + 1}</h3>
+                <h3 style={sectionTitleStyle}>{t('senseLabel')} {senseIndex + 1}</h3>
               </div>
-              <button style={styles.buttonDanger} onClick={() => removeSense(senseIndex)} disabled={entry.senses.length === 1}>Remove</button>
+              <button style={styles.buttonDanger} onClick={() => removeSense(senseIndex)} disabled={entry.senses.length === 1}>{t('remove')}</button>
             </div>
             <select
               style={styles.input}
               value={sense.pos}
               onChange={(e) => updateSense(senseIndex, (prev) => ({ ...prev, pos: e.target.value }))}
             >
-              {POS_OPTIONS.map((option) => (
+              {posOptions.map((option) => (
                 <option key={`sense-${senseIndex}-pos-${option.value}`} value={option.value}>{option.label}</option>
               ))}
             </select>
             <textarea
               style={{ ...styles.input, minHeight: '70px' }}
-              placeholder="Definition"
+              placeholder={t('definition')}
               value={sense.definition}
               onFocus={storeFocus({ kind: 'sense', senseIndex, field: 'definition' })}
               onKeyDown={handleTextKeyDown({ kind: 'sense', senseIndex, field: 'definition' })}
@@ -1750,41 +2346,7 @@ const DictionaryApp = () => {
             />
 
             <div style={styles.subSection}>
-              <h4 style={{ margin: '0 0 10px' }}>Examples (drag to reorder)</h4>
-              {sense.examples.map((ex, exIndex) => (
-                <div
-                  key={`ex-${senseIndex}-${exIndex}`}
-                  style={styles.row}
-                  draggable
-                  onDragStart={handleDragStart({ type: 'example', senseIndex, itemIndex: exIndex })}
-                  onDragOver={handleDragOver}
-                  onDrop={handleDropExample(senseIndex, exIndex)}
-                  onDragEnd={handleDragEnd}
-                >
-                  <input
-                    style={styles.input}
-                    placeholder="Example"
-                    value={ex.text}
-                    onFocus={storeFocus({ kind: 'example', senseIndex, exampleIndex: exIndex, field: 'text' })}
-                    onKeyDown={handleTextKeyDown({ kind: 'example', senseIndex, exampleIndex: exIndex, field: 'text' })}
-                    onChange={handleTextChange({ kind: 'example', senseIndex, exampleIndex: exIndex, field: 'text' })}
-                  />
-                  <input
-                    style={styles.input}
-                    placeholder="Example translation"
-                    value={ex.translation}
-                    onFocus={storeFocus({ kind: 'example', senseIndex, exampleIndex: exIndex, field: 'translation' })}
-                    onKeyDown={handleTextKeyDown({ kind: 'example', senseIndex, exampleIndex: exIndex, field: 'translation' })}
-                    onChange={handleTextChange({ kind: 'example', senseIndex, exampleIndex: exIndex, field: 'translation' })}
-                  />
-                  <button style={styles.buttonGhost} onClick={() => removeExample(senseIndex, exIndex)}>Remove</button>
-                </div>
-              ))}
-              <button style={styles.button} onClick={() => addExample(senseIndex)}>+ Add Example</button>
-            </div>
-
-            <div style={styles.subSection}>
-              <h4 style={{ margin: '0 0 10px' }}>Translations (drag to reorder)</h4>
+              <h4 style={{ margin: '0 0 10px' }}>{t('translations')}</h4>
               {sense.translations.map((tr, trIndex) => (
                 <div
                   key={`tr-${senseIndex}-${trIndex}`}
@@ -1806,20 +2368,54 @@ const DictionaryApp = () => {
                   </select>
                   <input
                     style={styles.input}
-                    placeholder="Translation"
+                    placeholder={t('translations')}
                     value={tr.text}
                     onFocus={storeFocus({ kind: 'translation', senseIndex, translationIndex: trIndex, field: 'text' })}
                     onKeyDown={handleTextKeyDown({ kind: 'translation', senseIndex, translationIndex: trIndex, field: 'text' })}
                     onChange={handleTextChange({ kind: 'translation', senseIndex, translationIndex: trIndex, field: 'text' })}
                   />
-                  <button style={styles.buttonGhost} onClick={() => removeTranslation(senseIndex, trIndex)}>Remove</button>
+                  <button style={styles.buttonGhost} onClick={() => removeTranslation(senseIndex, trIndex)}>{t('remove')}</button>
                 </div>
               ))}
-              <button style={styles.button} onClick={() => addTranslation(senseIndex)}>+ Add Translation</button>
+              <button style={styles.button} onClick={() => addTranslation(senseIndex)}>{t('addTranslation')}</button>
             </div>
 
             <div style={styles.subSection}>
-              <h4 style={{ margin: '0 0 10px' }}>Relations (drag to reorder)</h4>
+              <h4 style={{ margin: '0 0 10px' }}>{t('examples')}</h4>
+              {sense.examples.map((ex, exIndex) => (
+                <div
+                  key={`ex-${senseIndex}-${exIndex}`}
+                  style={styles.row}
+                  draggable
+                  onDragStart={handleDragStart({ type: 'example', senseIndex, itemIndex: exIndex })}
+                  onDragOver={handleDragOver}
+                  onDrop={handleDropExample(senseIndex, exIndex)}
+                  onDragEnd={handleDragEnd}
+                >
+                  <input
+                    style={styles.input}
+                    placeholder={t('examples')}
+                    value={ex.text}
+                    onFocus={storeFocus({ kind: 'example', senseIndex, exampleIndex: exIndex, field: 'text' })}
+                    onKeyDown={handleTextKeyDown({ kind: 'example', senseIndex, exampleIndex: exIndex, field: 'text' })}
+                    onChange={handleTextChange({ kind: 'example', senseIndex, exampleIndex: exIndex, field: 'text' })}
+                  />
+                  <input
+                    style={styles.input}
+                    placeholder={t('translations')}
+                    value={ex.translation}
+                    onFocus={storeFocus({ kind: 'example', senseIndex, exampleIndex: exIndex, field: 'translation' })}
+                    onKeyDown={handleTextKeyDown({ kind: 'example', senseIndex, exampleIndex: exIndex, field: 'translation' })}
+                    onChange={handleTextChange({ kind: 'example', senseIndex, exampleIndex: exIndex, field: 'translation' })}
+                  />
+                  <button style={styles.buttonGhost} onClick={() => removeExample(senseIndex, exIndex)}>{t('remove')}</button>
+                </div>
+              ))}
+              <button style={styles.button} onClick={() => addExample(senseIndex)}>{t('addExample')}</button>
+            </div>
+
+            <div style={styles.subSection}>
+              <h4 style={{ margin: '0 0 10px' }}>{t('relations')}</h4>
               {sense.relations.map((rel, relIndex) => (
                 <div
                   key={`rel-${senseIndex}-${relIndex}`}
@@ -1835,64 +2431,64 @@ const DictionaryApp = () => {
                     value={rel.type}
                     onChange={(e) => updateRelation(senseIndex, relIndex, 'type', e.target.value)}
                   >
-                    <option value="synonym">Synonym</option>
-                    <option value="antonym">Antonym</option>
-                    <option value="homonym">Homonym</option>
-                    <option value="variant">Variant</option>
-                    <option value="hypernym">Hypernym</option>
-                    <option value="hyponym">Hyponym</option>
+                    {relationOptions.map((option) => (
+                      <option key={`rel-${senseIndex}-${relIndex}-${option.value}`} value={option.value}>{option.label}</option>
+                    ))}
                   </select>
                   <input
                     style={styles.input}
-                    placeholder="Related word"
+                    placeholder={t('relations')}
                     value={rel.text}
                     onFocus={storeFocus({ kind: 'relation', senseIndex, relationIndex: relIndex, field: 'text' })}
                     onKeyDown={handleTextKeyDown({ kind: 'relation', senseIndex, relationIndex: relIndex, field: 'text' })}
                     onChange={handleTextChange({ kind: 'relation', senseIndex, relationIndex: relIndex, field: 'text' })}
                   />
-                  <button style={styles.buttonGhost} onClick={() => removeRelation(senseIndex, relIndex)}>Remove</button>
+                  <button style={styles.buttonGhost} onClick={() => removeRelation(senseIndex, relIndex)}>{t('remove')}</button>
                 </div>
               ))}
-              <button style={styles.button} onClick={() => addRelation(senseIndex)}>+ Add Relation</button>
+              <button style={styles.button} onClick={() => addRelation(senseIndex)}>{t('addRelation')}</button>
             </div>
           </div>
         ))}
 
         <div style={styles.card}>
-          <button style={styles.button} onClick={addSense}>+ Add Sense</button>
-          <button style={{ ...styles.buttonGhost, marginLeft: '10px' }} onClick={saveEntry} disabled={isSaving}>
-            {isSaving ? 'Saving...' : 'Save Entry'}
+          <button style={styles.button} onClick={addSense}>{t('addSense')}</button>
+          <button style={{ ...styles.buttonPrimary, marginLeft: '10px', opacity: isSaving ? 0.7 : 1 }} onClick={saveEntry} disabled={isSaving}>
+            {isSaving ? t('saving') : t('saveEntry')}
           </button>
           {saveStatus && <div style={styles.statusText}>{saveStatus}</div>}
         </div>
       </div>
 
-      <div style={styles.previewSide}>
+      <div style={previewSideStyle}>
         <div style={{ ...styles.card, ...styles.previewCard }}>
           <p style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '10px', fontWeight: 'bold', textTransform: 'uppercase' }}>
-            Visitor View Preview
+            {t('visitorPreview')}
           </p>
           <div style={styles.previewEntry}>
-            <h2 style={styles.headword}>{entry.word || '---'}</h2>
+            <h2 style={headwordStyle}>{entry.word || '---'}</h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '6px 0' }}>
-              <span style={styles.posTag}>{entry.pos || 'pos'}</span>
-              <span style={styles.statusBadge}>{entry.status || 'draft'}</span>
+              <span style={styles.posTag}>{entry.pos ? posLabel(entry.pos) : t('selectPos')}</span>
             </div>
             {entry.pronunciation && (
               <p style={{ color: '#64748b', fontSize: '14px', margin: '6px 0' }}>/{entry.pronunciation}/</p>
             )}
-            {entry.forms && (
+            {Array.isArray(entry.forms) && entry.forms.filter((form) => form.text).length > 0 && (
               <p style={{ color: '#475569', fontSize: '14px', margin: '6px 0' }}>
-                <strong>Forms:</strong> {entry.forms}
+                <strong>{t('formsLabel')}:</strong>{' '}
+                {entry.forms
+                  .filter((form) => form.text)
+                  .map((form) => `${otherFormsLabel(form.type)}: ${form.text}`)
+                  .join(' | ')}
               </p>
             )}
 
             {entry.senses.map((sense, senseIndex) => (
               <div key={`preview-${senseIndex}`} style={styles.previewSense}>
                 <div style={{ fontWeight: '600', marginBottom: '6px' }}>
-                  Sense {senseIndex + 1}{sense.pos ? ` - ${sense.pos}` : ''}
+                  {t('senseLabel')} {senseIndex + 1}{sense.pos ? ` - ${posLabel(sense.pos)}` : ''}
                 </div>
-                <p style={styles.definition}>{sense.definition || 'No definition yet...'}</p>
+                <p style={styles.definition}>{sense.definition || t('noDefinition')}</p>
 
                 {sense.translations.filter((tr) => tr.text).length > 0 && (
                   <p style={{ margin: '6px 0', color: '#1f6f78', fontWeight: '600' }}>
@@ -1906,7 +2502,7 @@ const DictionaryApp = () => {
                 {sense.examples.map((ex, exIndex) =>
                   ex.text ? (
                     <div key={`preview-ex-${senseIndex}-${exIndex}`} style={styles.exampleBox}>
-                      <strong>Ex:</strong> {ex.text} <br />
+                      <strong>{t('exampleShort')}:</strong> {ex.text} <br />
                       {ex.translation && <span style={{ color: '#64748b' }}>{'->'} {ex.translation}</span>}
                     </div>
                   ) : null
@@ -1914,7 +2510,7 @@ const DictionaryApp = () => {
 
                 {sense.relations.filter((rel) => rel.text).length > 0 && (
                   <p style={{ marginTop: '10px', fontSize: '14px' }}>
-                    <strong>Relations:</strong>{' '}
+                    <strong>{t('relationsLabel')}:</strong>{' '}
                     {sense.relations
                       .filter((rel) => rel.text)
                       .map((rel) => `${rel.type}: ${rel.text}`)
